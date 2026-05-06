@@ -9,3 +9,6 @@ This project demonstrates how to design structured databases, implement scheduli
 - Scheduling algorithm to assign lifts efficiently
 - Log events for safety and maintenance
 - Built with PostgreSQL for structured data and reliability
+
+## To run server
+- fastapi dev backend/app/main.py
