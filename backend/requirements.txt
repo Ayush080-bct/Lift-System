@@ -7,7 +7,10 @@ greenlet==3.3.2
 idna==3.11
 pydantic==2.12.5
 pydantic_core==2.41.5
+psycopg2-binary==2.9.12
+python-dotenv==1.2.2
 SQLAlchemy==2.0.48
 starlette==0.52.1
 typing-inspection==0.4.2
 typing_extensions==4.15.0
+uvicorn==0.46.0
