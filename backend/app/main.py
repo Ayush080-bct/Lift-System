@@ -1,6 +1,6 @@
 from fastapi import FastAPI
-from model.models import  Lift,Request,Log
-from repository.repository import LiftRepository
+from backend.model.models import Lift, Request, Log
+from backend.repository.repository import LiftRepository
 app=FastAPI()
 repo=LiftRepository()
 @app.get("/")
