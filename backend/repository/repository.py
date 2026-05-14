@@ -24,3 +24,19 @@ class LiftRepository:
     #Lift(1, 5, "up", "open"),
     #Lift(2, 3, "down", "closed")
     #]
+    def move_lift(self,lift_id:int,floor:int,direction:str,door_status:str)->bool:
+        """update lift position"""
+        cursor=conn.cursor()
+        try:
+            cursor.execute(
+                "UPDATE lifts SET current_floor = %s, direction = %s, door_status = %s WHERE lift_id = %s",
+                (floor, direction, door_status, lift_id)
+            )
+            cursor.commit()
+            cursor.close()
+            return True
+        except Exception as e:
+            conn.rollback()
+            cursor.close()
+            print("Error",e)
+            return False

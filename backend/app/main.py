@@ -19,3 +19,9 @@ def lifts_status():
     if result:
         return {"lifts": [{"lift_id": lift.lift_id, "current_floor": lift.current_floor, "direction": lift.direction, "door_status": lift.door_status} for lift in result]}
     return {'error':"lifts status not found"}
+@app.put('move_lift/{lift_id}')
+def move_lift(lift_id:int,floor:int,direction:str,door_status:str):
+    result=repo.move_lift(lift_id,floor,direction,door_status)
+    if result:
+        return {'Message':'Lift_moved Sucessfully','lift_id':lift_id,'floor':floor,'direction':direction,'door_status':door_status}
+    return {'Error':'Falied to move the lift'}
