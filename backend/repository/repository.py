@@ -2,6 +2,7 @@
 
 from ..model.databases import conn
 from ..model.models import Lift,Log,Request
+
 class LiftRepository:
     def get_lift(self,lift_id:int):
         """fetch by id"""
@@ -10,4 +11,16 @@ class LiftRepository:
         result=cursor.fetchone()
         cursor.close()
         return result
-    
+    def get_all_lifts(self)->list[Lift]:
+        """get all lifts"""
+        cursor=conn.cursor()
+        cursor.execute('SELECT * FROM lifts')
+        result=cursor.fetchall()#return tuple 
+        print(type(result))
+        cursor.close()
+        return [Lift(*row) for row in result]#since row 
+        # is tuple by doing *row we unpack tuples
+        #[
+    #Lift(1, 5, "up", "open"),
+    #Lift(2, 3, "down", "closed")
+    #]

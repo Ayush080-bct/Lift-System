@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from backend.model.models import Lift, Request, Log
 from backend.repository.repository import LiftRepository
+
 app=FastAPI()
 repo=LiftRepository()
 @app.get("/")
@@ -12,5 +13,9 @@ def lift_status(lift_id:int):
     if result:
         return {'lift_id':result[0],'floor':result[1]}
     return {'error':"lift not found"}
-
-
+@app.get('/lifts_Status')
+def lifts_status():
+    result=repo.get_all_lifts()
+    if result:
+        return {"lifts": [{"lift_id": lift.lift_id, "current_floor": lift.current_floor, "direction": lift.direction, "door_status": lift.door_status} for lift in result]}
+    return {'error':"lifts status not found"}
