@@ -40,3 +40,19 @@ class LiftRepository:
             cursor.close()
             print("Error",e)
             return False
+    def add_request(self,floor:int)->int:
+        """add new request"""
+        cursor=conn.cursor()
+        try:
+            cursor.execute(
+                           "INSERT into requests (floor,status) VALUES (%s,%s) returning request_id",
+                           (floor,'pending'))
+            request_id=cursor.fetchone()[0]
+            conn.commit()
+            cursor.close()
+            return request_id
+        except Exception as e:
+            conn.rollback()
+            cursor.close()
+            print(f"Error: {e}")
+            return None
