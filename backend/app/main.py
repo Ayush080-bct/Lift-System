@@ -25,3 +25,9 @@ def move_lift(lift_id:int,floor:int,direction:str,door_status:str):
     if result:
         return {'Message':'Lift_moved Sucessfully','lift_id':lift_id,'floor':floor,'direction':direction,'door_status':door_status}
     return {'Error':'Falied to move the lift'}
+@app.post('position_request/{floor}')
+def postion_request(floor:int):
+    result=repo.add_request(floor)
+    if result:
+        return {'Message':'Request added sucessfully','request_id':result,'floor':floor,'status':'pending'}
+    return {'Error':'Failed to add request'}
