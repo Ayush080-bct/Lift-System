@@ -16,8 +16,14 @@ SELECT * FROM requests WHERE lift_id = 1 AND status = 'pending';
 -- Get recent logs
 SELECT * FROM logs ORDER BY event_time DESC LIMIT 10;
 
-INSERT INTO requests (floor, status)--specifies which columns you’re inserting values into.
+-- ============= INSERT QUERIES =============
+-- Insert a new lift request
+-- This query creates a new lift request entry and returns the generated request_id
+INSERT INTO requests (floor, status)
 VALUES (5, 'pending')
-RETURNING request_id;-- tells PostgreSQL to immediately give back the newly generated request_id (since it’s a SERIAL primary key).
+RETURNING request_id;
 
-UPDATE lifts SET current_floor=2, direction=up, door_status=open where lift_id=3;
+-- ============= UPDATE QUERIES =============
+-- Update lift position and status
+-- This query updates the lift's current floor, direction, and door status
+UPDATE lifts SET current_floor=2, direction='up', door_status='open' WHERE lift_id=3;
