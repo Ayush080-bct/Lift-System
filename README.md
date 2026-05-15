@@ -13,6 +13,25 @@ This project demonstrates how to design structured databases, implement scheduli
 ## To run server
 - fastapi dev backend/app/main.py
 
+## 📡 API Endpoints
+
+### GET Endpoints
+| Endpoint | Description |
+|----------|-------------|
+| `GET /` | Health check - returns API status |
+| `GET /lift_Status/{lift_id}` | Get specific lift status by ID (returns lift_id and current_floor) |
+| `GET /lifts_Status` | Get all lifts status with full details (lift_id, current_floor, direction, door_status) |
+
+### PUT Endpoints
+| Endpoint | Description | Parameters |
+|----------|-------------|------------|
+| `PUT /move_lift/{lift_id}` | Update lift position and status | `lift_id` (path), `floor`, `direction`, `door_status` (query) |
+
+### POST Endpoints
+| Endpoint | Description | Parameters |
+|----------|-------------|------------|
+| `POST /position_request/{floor}` | Create a new lift request | `floor` (path parameter) |
+
 ## Architecture
 
 ### Repository Pattern (Data Access Layer)
