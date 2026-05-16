@@ -48,3 +48,9 @@ def change_status(request_id:int):
     if result:
         return {'Message':'Pending request served sucessfullly','request_id':request_id}
     return {'Error':'Failed to serve'}
+@app.post('/logs')
+def add_log(lift_id:int,event_type:str):
+    result=repo.log_event(lift_id,event_type)
+    if result:
+        return {'Message':'Log Added in Database','lift_id':lift_id,'event_type':event_type}
+    return {'Error':'Failed to add log'}

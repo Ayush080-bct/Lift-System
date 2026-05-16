@@ -81,3 +81,20 @@ class LiftRepository:
             cursor.close()
             print(f"Error {e}")
             return False
+    def log_event(self,lift_id:int,event_type:str)->int:
+        """Log an event"""
+        cursor=conn.cursor()
+        try:
+            cursor.execute(
+                "INSERT INTO logs(lift_id,event_type) VALUES (%s,%s) RETURNING log_id",(lift_id,event_type)
+            )
+            log_id=cursor.fetchone()[0]#return immediately a serial or autoincrement pk for each row
+            cursor.commit()
+            cursor.close()
+            return log_id
+        except Exception as e:
+            conn.rollback()
+            cursor.close()
+            print(f"Error:{e}")
+            return None
+    
