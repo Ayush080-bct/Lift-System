@@ -54,3 +54,9 @@ def add_log(lift_id:int,event_type:str):
     if result:
         return {'Message':'Log Added in Database','lift_id':lift_id,'event_type':event_type}
     return {'Error':'Failed to add log'}
+@app.get('/logs')
+def get_all_logs():
+    result=repo.get_all_logs()
+    if result:
+        return {'logs': [{'log_id': log.log_id, 'lift_id': log.lift_id, 'event_type': log.event_type, 'event_time': log.event_time} for log in result]}
+    return {'error': 'No logs found'}

@@ -97,4 +97,12 @@ class LiftRepository:
             cursor.close()
             print(f"Error:{e}")
             return None
+    def get_all_logs(self):
+        "Get all Record"
+        cursor=conn.cursor()
+        cursor.execute("Select * from logs")
+        result=cursor.fetchall()
+        cursor.close()
+        return [Log(*row) for row in result]
     
+        
