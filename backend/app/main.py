@@ -42,3 +42,9 @@ def get_all_position_request():
                             'lift_id':request.lift_id
             }for request in result]}
     return {"Error":"falied to get all pending request"}
+@app.put('/request_served/{request_id}')
+def change_status(request_id:int):
+    result=repo.mark_served(request_id)
+    if result:
+        return {'Message':'Pending request served sucessfullly','request_id':request_id}
+    return {'Error':'Failed to serve'}
