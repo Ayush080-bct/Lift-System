@@ -56,3 +56,14 @@ class LiftRepository:
             cursor.close()
             print(f"Error: {e}")
             return None
+    def get_pending_request(self)->list[Request]:
+        """Get all pending request for the lift"""
+        cursor=conn.cursor()
+        cursor.execute(
+            "SELECT request_id, floor,request_time,status,lift_id from requests where status='Pending'"
+        )
+        res=cursor.fetchall()
+        cursor.close()
+        return [Request(*row) for row in res]
+    
+
