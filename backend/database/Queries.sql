@@ -1,29 +1,35 @@
 -- ============= LIFT QUERIES =============
--- Get lift status
+-- Get lift status by ID
 SELECT lift_id, current_floor, direction, door_status FROM lifts WHERE lift_id = 1;
 
 -- Get all lifts
 SELECT * FROM lifts;
 
+-- Update lift position and status
+UPDATE lifts SET current_floor=2, direction='up', door_status='open' WHERE lift_id=3;
+
 -- ============= REQUEST QUERIES =============
--- Get pending requests
-SELECT * FROM requests WHERE status = 'pending';
+-- Get all pending requests
+SELECT request_id, floor, request_time, status, lift_id FROM requests WHERE status='Pending';
 
 -- Get requests for a specific lift
 SELECT * FROM requests WHERE lift_id = 1 AND status = 'pending';
 
+-- Insert a new lift request (returns request_id immediately)
+INSERT INTO requests (floor, status) VALUES (5, 'pending') RETURNING request_id;
+
+-- Mark request as served
+UPDATE requests SET status='served' WHERE request_id=%s;
+
 -- ============= LOG QUERIES =============
--- Get recent logs
+-- Get all event logs
+SELECT * FROM logs;
+
+-- Get recent logs (last 10)
 SELECT * FROM logs ORDER BY event_time DESC LIMIT 10;
 
--- ============= INSERT QUERIES =============
--- Insert a new lift request
--- This query creates a new lift request entry and returns the generated request_id
-INSERT INTO requests (floor, status)
-VALUES (5, 'pending')
-RETURNING request_id;
+-- Insert a new event log
+INSERT INTO logs (lift_id, event_type) VALUES (1, 'door_open');
 
--- ============= UPDATE QUERIES =============
--- Update lift position and status
--- This query updates the lift's current floor, direction, and door status
-UPDATE lifts SET current_floor=2, direction='up', door_status='open' WHERE lift_id=3;
+-- Get logs for a specific lift
+SELECT * FROM logs WHERE lift_id = 1 ORDER BY event_time DESC;
