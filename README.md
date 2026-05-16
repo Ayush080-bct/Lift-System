@@ -19,18 +19,22 @@ This project demonstrates how to design structured databases, implement scheduli
 | Endpoint | Description |
 |----------|-------------|
 | `GET /` | Health check - returns API status |
-| `GET /lift_Status/{lift_id}` | Get specific lift status by ID (returns lift_id and current_floor) |
-| `GET /lifts_Status` | Get all lifts status with full details (lift_id, current_floor, direction, door_status) |
+| `GET /lifts/{lift_id}` | Get specific lift status by ID (returns lift_id and current_floor) |
+| `GET /lifts` | Get all lifts status with full details (lift_id, current_floor, direction, door_status) |
+| `GET /requests` | Get all pending requests |
+| `GET /logs` | Get all event logs |
 
 ### PUT Endpoints
 | Endpoint | Description | Parameters |
 |----------|-------------|------------|
-| `PUT /move_lift/{lift_id}` | Update lift position and status | `lift_id` (path), `floor`, `direction`, `door_status` (query) |
+| `PUT /lifts/{lift_id}` | Update lift position and status | `lift_id` (path), `floor`, `direction`, `door_status` (query) |
+| `PUT /requests/{request_id}` | Mark request as served | `request_id` (path parameter) |
 
 ### POST Endpoints
 | Endpoint | Description | Parameters |
 |----------|-------------|------------|
-| `POST /position_request/{floor}` | Create a new lift request | `floor` (path parameter) |
+| `POST /requests` | Create a new lift request | `floor` (query parameter) |
+| `POST /logs` | Add a new event log | `lift_id`, `event_type` (query parameters) |
 
 ## Architecture
 
