@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI,HTTPException
 from backend.model.models import Lift, Request, Log
 from backend.repository.repository import LiftRepository
 
@@ -9,16 +9,23 @@ def root():
     return {"Message":"Lift System API running"}
 @app.get('/lifts/{lift_id}')
 def lift_status(lift_id:int):
-    result=repo.get_lift(lift_id)
-    if result:
-        return {'lift_id':result[0],'floor':result[1]}
-    return {'error':"lift not found"}
+    try:
+        result=repo.get_lift(lift_id)
+        if result:
+            return {'lift_id':result[0],'floor':result[1]}
+        raise HTTPException(status_code=404, detail="Lift not found")#request resources not found
+    except Exception as e:
+        #raise a 500 for unexpected error
+        raise HTTPException(status_code=500, detail=str(e))# Internal server error
 @app.get('/lifts')
 def lifts_status():
-    result=repo.get_all_lifts()
-    if result:
-        return {"lifts": [{"lift_id": lift.lift_id, "current_floor": lift.current_floor, "direction": lift.direction, "door_status": lift.door_status} for lift in result]}
-    return {'error':"lifts status not found"}
+    try:
+        result=repo.get_all_lifts()
+        if result:
+            return {"lifts": [{"lift_id": lift.lift_id, "current_floor": lift.current_floor, "direction": lift.direction, "door_status": lift.door_status} for lift in result]}
+        raise HTTPException(status_code=404, detail="Lifts not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 @app.put('/lifts/{lift_id}')
 def move_lift(lift_id:int,floor:int,direction:str,door_status:str):
     result=repo.move_lift(lift_id,floor,direction,door_status)
