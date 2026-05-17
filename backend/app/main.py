@@ -1,7 +1,7 @@
 from fastapi import FastAPI,HTTPException
 from backend.model.models import Lift, Request, Log
 from backend.repository.repository import LiftRepository
-
+import psycopg2#
 app=FastAPI()
 repo=LiftRepository()
 @app.get("/")
@@ -26,12 +26,25 @@ def lifts_status():
         raise HTTPException(status_code=404, detail="Lifts not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-@app.put('/lifts/{lift_id}')
-def move_lift(lift_id:int,floor:int,direction:str,door_status:str):
-    result=repo.move_lift(lift_id,floor,direction,door_status)
-    if result:
-        return {'Message':'Lift_moved Sucessfully','lift_id':lift_id,'floor':floor,'direction':direction,'door_status':door_status}
-    return {'Error':'Falied to move the lift'}
+@app.put("/lifts/{lift_id}")
+def move_lift(lift_id: int, floor: int, direction: str, door_status: str):
+    try:
+        result = repo.move_lift(lift_id, floor, direction, door_status)
+        if result:
+            return {
+                "Message": "Lift moved successfully",
+                "lift_id": lift_id,
+                "floor": floor,
+                "direction": direction,
+                "door_status": door_status
+            }
+        raise HTTPException(status_code=404, detail="Lift not found")#If the lift does not exist
+    except psycopg2.errors.CheckViolation as e:#since our database have check constraints , the invalid input will rejected by database
+        # Database rejected invalid direction/door_status
+        raise HTTPException(status_code=400, detail="Invalid input: " + str(e))#Bad input (eg invalid direction or door_status)
+    except Exception as e:
+        # Unexpected server error
+        raise HTTPException(status_code=500, detail=str(e))
 @app.post('/requests')
 def postion_request(floor:int):
     result=repo.add_request(floor)
