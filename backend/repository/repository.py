@@ -32,7 +32,7 @@ class LiftRepository:
                 "UPDATE lifts SET current_floor = %s, direction = %s, door_status = %s WHERE lift_id = %s",
                 (floor, direction, door_status, lift_id)
             )
-            cursor.commit()
+            conn.commit()
             cursor.close()
             return True
         except Exception as e:
@@ -60,7 +60,7 @@ class LiftRepository:
         """Get all pending request for the lift"""
         cursor=conn.cursor()
         cursor.execute(
-            "SELECT request_id, floor,request_time,status,lift_id from requests where status='Pending'"
+            "SELECT request_id, floor,request_time,status,lift_id from requests where status='pending'"
         )
         res=cursor.fetchall()
         cursor.close()
@@ -71,9 +71,9 @@ class LiftRepository:
         try:
             cursor.execute(
                 "UPDATE requests SET status='served' WHERE request_id=%s",
-                (request_id)
+                (request_id,)
             )
-            cursor.commit()
+            conn.commit()
             cursor.close()
             return True
         except Exception as e:
@@ -89,7 +89,7 @@ class LiftRepository:
                 "INSERT INTO logs(lift_id,event_type) VALUES (%s,%s) RETURNING log_id",(lift_id,event_type)
             )
             log_id=cursor.fetchone()[0]#return immediately a serial or autoincrement pk for each row
-            cursor.commit()
+            conn.commit()
             cursor.close()
             return log_id
         except Exception as e:
