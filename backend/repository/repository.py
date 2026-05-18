@@ -65,6 +65,23 @@ class LiftRepository:
         res=cursor.fetchall()
         cursor.close()
         return [Request(*row) for row in res]
+    
+    def assign_request_to_lift(self, request_id: int, lift_id: int) -> bool:
+        """Assign a request to a specific lift"""
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "UPDATE requests SET lift_id = %s WHERE request_id = %s",
+                (lift_id, request_id)
+            )
+            conn.commit()
+            cursor.close()
+            return True
+        except Exception as e:
+            conn.rollback()
+            cursor.close()
+            print(f"Error: {e}")
+            return False
     def mark_served(self,request_id:int)->bool:
         "Mark request as served"
         cursor=conn.cursor()

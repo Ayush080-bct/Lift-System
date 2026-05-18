@@ -1,12 +1,14 @@
 from fastapi import FastAPI,HTTPException
 from backend.model.models import Lift, Request, Log
 from backend.repository.repository import LiftRepository
+from backend.service.scheduling_service import SchedulingService
 
 from fastapi.responses import JSONResponse
 from fastapi.requests import Request
 import psycopg2
 app=FastAPI()
 repo=LiftRepository()
+scheduler=SchedulingService(repo)
 
 
 @app.exception_handler(Exception)
@@ -144,6 +146,80 @@ def get_all_logs():
                 ]
             }
         return {"logs": []}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/assign_lift/{request_id}")
+def assign_lift_auto(request_id: int):
+    """
+    Automatically assign the best lift to a request using SCAN algorithm.
+    """
+    try:
+        # Get the request details
+        result = repo.get_pending_request()
+        request_obj = next((r for r in result if r.request_id == request_id), None)
+        
+        if not request_obj:
+            raise HTTPException(status_code=404, detail="Request not found")
+        
+        # Find best lift for this floor
+        best_lift_id = scheduler.assign_lift_to_request(request_obj.floor)
+        
+        if not best_lift_id:
+            raise HTTPException(status_code=500, detail="No lifts available")
+        
+        # Assign request to lift
+        success = repo.assign_request_to_lift(request_id, best_lift_id)
+        
+        if success:
+            repo.log_event(best_lift_id, f"Assigned to request {request_id} for floor {request_obj.floor}")
+            return {
+                "message": "Lift assigned successfully",
+                "request_id": request_id,
+                "lift_id": best_lift_id,
+                "floor": request_obj.floor
+            }
+        
+        raise HTTPException(status_code=500, detail="Failed to assign lift")
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/next_floor/{lift_id}")
+def get_next_floor(lift_id: int):
+    """
+    Get the next floor a lift should visit based on pending requests (SCAN algorithm).
+    """
+    try:
+        lift = repo.get_lift(lift_id)
+        
+        if not lift:
+            raise HTTPException(status_code=404, detail="Lift not found")
+        
+        next_floor = scheduler.get_next_floor_for_lift(lift_id)
+        
+        if next_floor is None:
+            return {
+                "message": "No pending requests",
+                "lift_id": lift_id,
+                "next_floor": None,
+                "current_floor": lift.current_floor
+            }
+        
+        return {
+            "message": "Next floor determined",
+            "lift_id": lift_id,
+            "current_floor": lift.current_floor,
+            "next_floor": next_floor,
+            "direction": lift.direction
+        }
+    
     except HTTPException:
         raise
     except Exception as e:
