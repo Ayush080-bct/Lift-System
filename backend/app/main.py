@@ -47,10 +47,16 @@ def move_lift(lift_id: int, floor: int, direction: str, door_status: str):
         raise HTTPException(status_code=500, detail=str(e))
 @app.post('/requests')
 def postion_request(floor:int):
-    result=repo.add_request(floor)
-    if result:
-        return {'Message':'Request added sucessfully','request_id':result,'floor':floor,'status':'pending'}
-    return {'Error':'Failed to add request'}
+    try:
+        result=repo.add_request(floor)
+        if result:
+            return {'Message':'Request added sucessfully','request_id':result,'floor':floor,'status':'pending'}
+        raise HTTPException(status_code=404,detail="")
+    except psycopg2.errors.CheckViolation as e:
+        raise HTTPException(status_code=400,detail="Invalid Input "+str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=str(e))
+
 @app.get('/requests')
 def get_all_position_request():
     result=repo.get_pending_request()
