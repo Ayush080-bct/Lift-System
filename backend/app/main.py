@@ -51,29 +51,39 @@ def postion_request(floor:int):
         result=repo.add_request(floor)
         if result:
             return {'Message':'Request added sucessfully','request_id':result,'floor':floor,'status':'pending'}
-        raise HTTPException(status_code=404,detail="")
+        raise HTTPException(status_code=404,detail="lift not found")
     except psycopg2.errors.CheckViolation as e:
         raise HTTPException(status_code=400,detail="Invalid Input "+str(e))
+    except psycopg2.errors.UniqueViolation as e:
+        raise HTTPException(status_code=409, detail="Duplicate request: " + str(e))
     except Exception as e:
         raise HTTPException(status_code=500,detail=str(e))
 
 @app.get('/requests')
 def get_all_position_request():
-    result=repo.get_pending_request()
-    if result:
-        return {'Request':[{'request_id':request.request_id,
-                            'floor':request.floor,
-                            'request_time':request.request_time,
-                            'status':request.status,
-                            'lift_id':request.lift_id
-            }for request in result]}
-    return {"Error":"falied to get all pending request"}
+    try:
+        result=repo.get_pending_request()
+        if result:
+            return {'Request':[{'request_id':request.request_id,
+                                'floor':request.floor,
+                                'request_time':request.request_time,
+                                'status':request.status,
+                                'lift_id':request.lift_id
+                }for request in result]}
+        raise HTTPException(status_code=404,detail="Request not found")
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=str(e))
 @app.put('/requests/{request_id}')
 def change_status(request_id:int):
-    result=repo.mark_served(request_id)
-    if result:
-        return {'Message':'Pending request served sucessfullly','request_id':request_id}
-    return {'Error':'Failed to serve'}
+    try:
+        result=repo.mark_served(request_id)
+        if result:
+            return {'Message':'Pending request served sucessfullly','request_id':request_id}
+        raise HTTPException(status_code=404,detail="request not found")
+    except psycopg2.errors.CheckViolation as e:
+        raise HTTPException(status_code=400,detail="Invalid string "+str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=str(e))
 @app.post('/logs')
 def add_log(lift_id:int,event_type:str):
     result=repo.log_event(lift_id,event_type)
