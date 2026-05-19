@@ -66,7 +66,7 @@ def move_lift(lift_id: int, floor: int, direction: str, door_status: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 @app.post('/requests')
-def position_request(floor:int):
+def position_request(floor:int):#floor is the queer parameter in endpoint
     try:
         if floor < 0:
             raise HTTPException(status_code=400, detail="Floor cannot be negative")
