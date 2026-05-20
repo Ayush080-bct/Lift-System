@@ -38,3 +38,11 @@ export async function updateLift(
     );
     return response.json();
 }
+export async function ServeRequest(request_id:number) {
+    const response=await fetch(`${API_URL}/requests/${request_id}`,
+        {
+            method:"PUT"
+        }
+    );   
+    return response.json();
+}
