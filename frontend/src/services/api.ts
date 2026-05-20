@@ -26,3 +26,15 @@ export async function getAlift(lift_id:number):Promise<Lift>{
     const data=await response.json();
     return data;
 }
+export async function updateLift(
+    lift_id:number,
+    floor:number,
+    direction:string,
+    door_status:string
+) {
+    const response=await fetch(
+        `${API_URL}/lifts/${lift_id}?floor=${floor}&direction=${direction}&door_status=${door_status}`,
+        { method : "PUT" }
+    );
+    return response.json();
+}
