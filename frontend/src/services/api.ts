@@ -55,3 +55,7 @@ export async function assignLift(request_id:number) {
     );
     return response.json();
 }
+export async function getNextFloor(lift_id: number) {
+    const response = await fetch(`${API_URL}/next_floor/${lift_id}`);
+    return response.json();
+}
