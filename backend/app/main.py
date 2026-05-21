@@ -154,8 +154,7 @@ def get_all_logs():
 
 @app.post("/assign_lift/{request_id}")
 def assign_lift_auto(request_id: int):
-    """
-    Automatically assign the best lift to a request using SCAN algorithm.
+    """automatically assign the best lift to a request using scan algorithm.
     """
     try:
         # Get the request details
