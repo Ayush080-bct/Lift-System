@@ -2,6 +2,7 @@ import { getAllLifts } from "../services/api";
 import { useState,useEffect } from "react";
 import type { Lift } from "../types";
 import { LiftCard } from "./LiftCard";
+import "./styles/LiftsList.css";
 
 export function LiftsList(){
     const [lifts,setLifts]=useState<Lift[]>([])

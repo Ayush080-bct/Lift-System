@@ -1,4 +1,5 @@
 import type { Lift } from "../types";
+import "./styles/LiftCard.css";
 
 
 interface LiftCardProps {
