@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS requests (
     request_id SERIAL PRIMARY KEY,
     floor INT NOT NULL,
     request_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status VARCHAR(10) CHECK (status IN ('pending','served')),
+    status VARCHAR(10) DEFAULT 'pending',
     lift_id INT,
     CONSTRAINT fk_req_lift
         FOREIGN KEY (lift_id)
@@ -29,3 +29,5 @@ CREATE TABLE IF NOT EXISTS logs (
 );
 ALTER TABLE logs 
 ADD CONSTRAINT chk_event_type CHECK (event_type IN ('button_pressed','lift_arrived','door_opened','door_closed','emergency_stop'))
+
+DROP TABLE requests CASCADE;
