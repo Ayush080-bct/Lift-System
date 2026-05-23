@@ -87,9 +87,9 @@ class LiftRepository:
         cursor=conn.cursor()
         try:
             cursor.execute(
-                "UPDATE requests SET status='served' WHERE request_id=%s",
-                (request_id,)
-            )
+            "DELETE FROM requests WHERE request_id=%s",
+            (request_id,)
+        )
             conn.commit()
             cursor.close()
             return True
