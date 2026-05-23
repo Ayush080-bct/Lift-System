@@ -114,10 +114,22 @@ def get_all_position_request():
 @app.put('/requests/{request_id}')
 def change_status(request_id:int):
     try:
-        result=repo.mark_served(request_id)
+        # Get request details BEFORE deleting
+        pending_requests = repo.get_pending_request()
+        request_obj = next((r for r in pending_requests if r.request_id == request_id), None)
+        
+        if not request_obj:
+            raise HTTPException(status_code=404, detail="Request not found")
+        
+        # Delete the request
+        result = repo.mark_served(request_id)
+        
         if result:
+            # Create log entry
+            repo.log_event(request_obj.lift_id, f"Served request {request_id} for floor {request_obj.floor}")
             return {'message':'Pending request served successfully','request_id':request_id}
-        raise HTTPException(status_code=404, detail="Request not found")
+        
+        raise HTTPException(status_code=404, detail="Failed to serve request")
     except psycopg2.errors.CheckViolation as e:
         raise HTTPException(status_code=400, detail="Invalid input: " + str(e))
     except Exception as e:
