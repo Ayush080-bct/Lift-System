@@ -1,12 +1,10 @@
-import { LiftsList } from "./components/LiftsList";
-import { RequestPanel } from "./components/RequestPanel";
+import Routing from "./routes/Routing";
+
 
 const App=()=>{
   return(
     <>
-      <header>Lift System</header>
-      <LiftsList />
-      <RequestPanel />
+      <Routing />
     </>
   )
 }
