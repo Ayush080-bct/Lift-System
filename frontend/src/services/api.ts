@@ -1,4 +1,5 @@
 import type { Lift,Request,Log } from "../types";
+
 const API_URL="http://localhost:8000";
 export async function getAllLifts():Promise<Lift[]> {//typescript return type notation similar to python(->)
     const response=await fetch(`${API_URL}/lifts`);
@@ -51,8 +52,11 @@ export async function assignLift(request_id:number) {
     const response=await fetch(`${API_URL}/assign_lift/${request_id}`,
         {
             method:"POST"
+        });
+        if(!response.ok){
+            throw new Error("Failed to assign lift");
         }
-    );
+
     return response.json();
 }
 export async function getNextFloor(lift_id: number) {
