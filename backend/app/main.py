@@ -2,6 +2,8 @@ from fastapi import FastAPI,HTTPException
 from backend.model.models import Lift, Request, Log
 from backend.repository.repository import LiftRepository
 from backend.service.scheduling_service import SchedulingService
+from contextlib import asynccontextmanager
+import asyncio
 
 from fastapi.responses import JSONResponse
 from fastapi.requests import Request
@@ -78,7 +80,7 @@ def move_lift(lift_id: int, floor: int, direction: str, door_status: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 @app.post('/requests')
-def position_request(floor:int):#floor is the queer parameter in endpoint
+def position_request(floor:int,lift_id:int=1):#floor is the queer parameter in endpoint
     try:
         if floor < 0:
             raise HTTPException(status_code=400, detail="Floor cannot be negative")
@@ -176,42 +178,7 @@ def get_all_logs():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/assign_lift/{request_id}")
-def assign_lift_auto(request_id: int):
-    """automatically assign the best lift to a request using scan algorithm.
-    """
-    try:
-        # Get the request details
-        result = repo.get_pending_request()
-        request_obj = next((r for r in result if r.request_id == request_id), None)
-        
-        if not request_obj:
-            raise HTTPException(status_code=404, detail="Request not found")
-        
-        # Find best lift for this floor
-        best_lift_id = scheduler.assign_lift_to_request(request_obj.floor)
-        
-        if not best_lift_id:
-            raise HTTPException(status_code=500, detail="No lifts available")
-        
-        # Assign request to lift
-        success = repo.assign_request_to_lift(request_id, best_lift_id)
-        
-        if success:
-            repo.log_event(best_lift_id, f"Assigned to request {request_id} for floor {request_obj.floor}")
-            return {
-                "message": "Lift assigned successfully",
-                "request_id": request_id,
-                "lift_id": best_lift_id,
-                "floor": request_obj.floor
-            }
-        
-        raise HTTPException(status_code=500, detail="Failed to assign lift")
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @app.get("/next_floor/{lift_id}")
@@ -247,3 +214,57 @@ def get_next_floor(lift_id: int):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/simulate_lift_step/{lift_id}")
+def simulate_lift_step(lift_id: int):
+    """
+    Simulate one step of lift movement: move floor, serve requests, and log events.
+    This is the engine that makes lifts move automatically following SCAN algorithm.
+    """
+    try:
+        lift = repo.get_lift(lift_id)
+        
+        if not lift:
+            raise HTTPException(status_code=404, detail="Lift not found")
+        
+        # Execute one simulation step
+        scheduler.update_and_serve(lift_id)
+        
+        # Get updated lift status
+        updated_lift = repo.get_lift(lift_id)
+        
+        return {
+            "message": "Lift step executed",
+            "lift_id": lift_id,
+            "current_floor": updated_lift.current_floor,
+            "direction": updated_lift.direction,
+            "door_status": updated_lift.door_status
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+async def simulate_lifts():
+    """Background task to continuously move lifts"""
+    while True:
+        try:
+            # For each lift, simulate one step
+            lifts = repo.get_all_lifts()
+            for lift in lifts:
+                scheduler.update_and_serve(lift.lift_id)
+            await asyncio.sleep(2)  # Every 2 seconds
+        except Exception as e:
+            print(f"Error in lift simulation: {e}")
+            await asyncio.sleep(2)
+
+# Startup and shutdown events
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: start background task
+    task = asyncio.create_task(simulate_lifts())
+    yield
+    # Shutdown: cancel task
+    task.cancel()
