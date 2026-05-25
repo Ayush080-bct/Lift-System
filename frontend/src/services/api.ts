@@ -6,9 +6,9 @@ export async function getAllLifts():Promise<Lift[]> {//typescript return type no
     const data=await response.json();
     return data.lifts || [];
 }
-export async function createRequest(floor:number){
-    const response=await fetch(`${API_URL}/requests?floor=${floor}`,{
-        method:"POST",
+export async function createRequest(floor: number, lift_id: number = 1) {
+    const response = await fetch(`${API_URL}/requests?floor=${floor}&lift_id=${lift_id}`, {
+        method: "POST",
     });
     return response.json();
 }
@@ -48,18 +48,17 @@ export async function serveRequest(request_id:number) {
     return response.json();
 }
 
-export async function assignLift(request_id:number) {
-    const response=await fetch(`${API_URL}/assign_lift/${request_id}`,
-        {
-            method:"POST"
-        });
-        if(!response.ok){
-            throw new Error("Failed to assign lift");
-        }
 
-    return response.json();
-}
 export async function getNextFloor(lift_id: number) {
     const response = await fetch(`${API_URL}/next_floor/${lift_id}`);
     return response.json();
+}
+export async function simulateLiftStep(lift_id:number) {
+    const response=await fetch(`${API_URL}/simulate_lift_step/${lift_id}`,
+        {
+            method:"POST"
+        }
+    );
+    return response.json();
+    
 }
