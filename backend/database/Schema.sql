@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS logs (
         REFERENCES lifts(lift_id)
         ON DELETE CASCADE  -- If a lift is deleted, automatically delete all its log records
 );
-ALTER TABLE logs 
-ADD CONSTRAINT chk_event_type CHECK (event_type IN ('button_pressed','lift_arrived','door_opened','door_closed','emergency_stop'))
 
-DROP TABLE requests CASCADE;
+-- Remove existing constraint if it exists, then events can be any type
+ALTER TABLE logs 
+DROP CONSTRAINT IF EXISTS chk_event_type;
+ 
