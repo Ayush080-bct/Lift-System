@@ -80,13 +80,16 @@ def move_lift(lift_id: int, floor: int, direction: str, door_status: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 @app.post('/requests')
-def position_request(floor:int,lift_id:int=1):#floor is the queer parameter in endpoint
+def position_request(floor:int,lift_id:int=1):#floor is the query parameter in endpoint
     try:
         if floor < 0:
             raise HTTPException(status_code=400, detail="Floor cannot be negative")
         result=repo.add_request(floor)
         if result:
-            return {'message':'Request added successfully','request_id':result,'floor':floor,'status':'pending'}
+            # Assign request to lift immediately
+            repo.assign_request_to_lift(result, lift_id)
+            repo.log_event(lift_id, f"Request {result} created for floor {floor}")
+            return {'message':'Request added successfully','request_id':result,'floor':floor,'lift_id':lift_id,'status':'pending'}
         raise HTTPException(status_code=500, detail="Failed to add request")
     except psycopg2.errors.CheckViolation as e:
         raise HTTPException(status_code=400, detail="Invalid input: " + str(e))
