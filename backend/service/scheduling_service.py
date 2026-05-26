@@ -111,3 +111,51 @@ class SchedulingService:
         else:  # idle
             # Pick closest floor
             return min(floors, key=lambda f: abs(f - current_floor))
+    
+    def update_and_serve(self, lift_id: int):
+        """
+        Moves the lift to the next floor, serves requests if it arrives,
+        and logs the events. This is the core simulation engine for a lift.
+        """
+        lift = self.repo.get_lift(lift_id)
+        if not lift:
+            return  # Lift not found
+
+        # 1. Find requests for this lift that are at its current floor
+        pending_requests = self.repo.get_pending_request()
+        requests_at_current_floor = [
+            req for req in pending_requests
+            if req.lift_id == lift_id and req.floor == lift.current_floor
+        ]
+
+        # 2. Serve all requests at the current floor
+        if requests_at_current_floor:
+            self.repo.move_lift(lift_id, lift.current_floor, lift.direction, "open")
+            for req in requests_at_current_floor:
+                self.repo.mark_served(req.request_id)
+                self.repo.log_event(
+                    lift_id, f"Served request {req.request_id} at floor {lift.current_floor}"
+                )
+            self.repo.move_lift(lift_id, lift.current_floor, lift.direction, "closed")
+
+        # 3. Determine the next floor for the lift to move to
+        next_floor = self.get_next_floor_for_lift(lift_id)
+
+        if next_floor is not None:
+            # Determine direction based on next floor
+            new_direction = "idle"
+            if next_floor > lift.current_floor:
+                new_direction = "up"
+            elif next_floor < lift.current_floor:
+                new_direction = "down"
+
+            # Move the lift one step closer to the next floor
+            next_target_floor = lift.current_floor + (1 if new_direction == "up" else -1)
+            if new_direction != "idle":
+                self.repo.move_lift(lift_id, next_target_floor, new_direction, "closed")
+                self.repo.log_event(lift_id, f"Moving {new_direction} to floor {next_target_floor}")
+        else:
+            # No more requests, become idle
+            if lift.direction != "idle":
+                self.repo.move_lift(lift_id, lift.current_floor, "idle", "closed")
+                self.repo.log_event(lift_id, "Became idle, no pending requests.")
