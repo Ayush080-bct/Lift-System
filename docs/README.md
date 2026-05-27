@@ -174,23 +174,23 @@ backend/
 
 ### API Endpoints
 
-#### Lifts
-- `GET /lifts` - Get all lifts
-- `GET /lifts/{lift_id}` - Get specific lift
-- `PUT /lifts/{lift_id}` - Update lift position
+#### Lifts Management
+- `GET /lifts` - Get all lifts (current state)
+- `GET /lifts/{lift_id}` - Get specific lift status
+- `PUT /lifts/{lift_id}` - Update lift floor/direction/door_status
 
-#### Requests
-- `POST /requests?floor=X` - Create new request
+#### Requests (Floor Requests)
+- `POST /requests?floor=X&lift_id=Y` - Create new floor request (auto-assigned to lift)
 - `GET /requests` - Get all pending requests
-- `PUT /requests/{request_id}` - Mark as served
+- `PUT /requests/{request_id}` - Mark request as served
 
-#### Logs
-- `POST /logs?lift_id=X&event_type=Y` - Add event log
-- `GET /logs` - Get all logs
+#### Event Logs
+- `POST /logs` - Add event log
+- `GET /logs` - Get all event logs (shows last 20 in frontend)
 
-#### Scheduling
-- `POST /assign_lift/{request_id}` - Auto-assign lift (SCAN)
-- `GET /next_floor/{lift_id}` - Get next floor to visit
+#### Scheduling (SCAN Algorithm)
+- `GET /next_floor/{lift_id}` - Get next floor for lift to visit
+- `POST /simulate_lift_step/{lift_id}` - Execute one lift movement step (called by background scheduler)
 
 ---
 
@@ -198,47 +198,98 @@ backend/
 
 ### What is SCAN?
 
-SCAN (Elevator Scheduling) algorithm moves lifts in one direction until all requests are served, then reverses direction.
+SCAN (Elevator Scheduling) algorithm determines the **OPTIMAL ORDER OF STOPS** for a single lift when it has multiple floor requests.
+
+**Key Concept:**
+- Lift moves in ONE direction (up/down) serving all requests in that direction
+- Once no more requests exist in current direction, lift REVERSES direction
+- This minimizes total travel time and energy
 
 ### How It Works
 
 ```
-Step 1: Check lift's current direction (up/down/idle)
-Step 2: Find all pending requests for this lift
-Step 3: Get next unserved floor in current direction
-Step 4: If no floors ahead, reverse and go opposite direction
-Step 5: Move lift and repeat
+For ONE lift with multiple requests:
+
+Step 1: Get all pending requests for this lift
+Step 2: Determine next floor in current direction
+Step 3: Move to that floor
+Step 4: If requests exist in current direction → go to Step 2
+Step 5: If NO requests in current direction → reverse direction
+Step 6: Repeat from Step 2 in new direction
 ```
 
 ### Example
 
 ```
-Lift at floor 5, moving UP
-Pending requests: [3, 7, 10]
+Lift Position: Floor 5, Direction: UP
+Pending Requests: [3, 7, 10]
 
-Current: 5, Direction: UP
-→ Next floor above: 7 ✓ (serve)
-→ Current: 7, Direction: UP
-→ Next floor above: 10 ✓ (serve)
-→ Current: 10, Direction: UP
-→ No floors above, reverse to DOWN
-→ Next floor below: 3 ✓ (serve)
-→ Current: 3, Direction: DOWN
-→ Done!
+Current: Floor 5, Direction: UP
+→ Floors ABOVE (in UP direction): [7, 10]
+→ Next floor: 7 (closest ahead)
+→ Move to 7, serve request
+→ Current: Floor 7, Direction: UP
+
+Current: Floor 7, Direction: UP
+→ Floors ABOVE: [10]
+→ Next floor: 10
+→ Move to 10, serve request
+→ Current: Floor 10, Direction: UP
+
+Current: Floor 10, Direction: UP
+→ Floors ABOVE: [] (empty)
+→ No more requests going UP, REVERSE direction
+
+Current: Floor 10, Direction: DOWN
+→ Floors BELOW: [3]
+→ Next floor: 3
+→ Move to 3, serve request
+→ DONE! All requests served
 ```
 
-### Implementation
+### Implementation in Code
 
 ```python
-def assign_lift_to_request(self, requested_floor: int):
-    # 1. Get all lifts
-    # 2. Count pending requests per lift
-    # 3. Score each lift based on:
-    #    - Distance to requested floor
-    #    - Current load (penalty: load × 2)
-    #    - Direction match (prefer lifts already moving toward floor)
-    # 4. Return lift with lowest score
+def get_next_floor_for_lift(self, lift_id: int):
+    """
+    Returns next floor to visit for this lift using SCAN logic
+    """
+    lift = self.repo.get_lift(lift_id)  # Current state
+    pending_requests = self.repo.get_pending_request()
+    
+    # Get floors for this lift only
+    lift_requests = [req for req in pending_requests if req.lift_id == lift_id]
+    
+    if not lift_requests:
+        return None  # No requests, stay idle
+    
+    floors = sorted(set(req.floor for req in lift_requests))
+    current_floor = lift.current_floor
+    
+    # SCAN: Continue in current direction
+    if lift.direction == "up":
+        floors_above = [f for f in floors if f > current_floor]
+        if floors_above:
+            return min(floors_above)  # Go to closest floor above
+        else:
+            # No floors above, must go down
+            return max(floors)  # Go to top floor first, then down
+    
+    elif lift.direction == "down":
+        floors_below = [f for f in floors if f < current_floor]
+        if floors_below:
+            return max(floors_below)  # Go to closest floor below
+        else:
+            # No floors below, must go up
+            return min(floors)  # Go to bottom floor first, then up
 ```
+
+### Why SCAN is Optimal
+
+✅ **Minimizes travel time** - No back-and-forth between floors  
+✅ **Fair service** - All requests in direction served before reversing  
+✅ **Energy efficient** - Continuous motion in one direction  
+✅ **User friendly** - Predictable behavior
 
 ---
 
@@ -247,33 +298,45 @@ def assign_lift_to_request(self, requested_floor: int):
 ### Request Lifecycle
 
 ```
-1. User clicks "Request Lift" at Floor 5
+1. User enters lift and presses "Floor 5" button
    ↓
-2. Frontend: RequestPanel → createRequest(5)
+2. Frontend: RequestPanel → createRequest(floor=5, lift_id=1)
    ↓
-3. Backend: POST /requests?floor=5
+3. Backend: POST /requests?floor=5&lift_id=1
    ↓
-4. Repository: INSERT into requests table
+4. Repository: INSERT into requests table (lift_id already assigned)
    ↓
-5. Frontend: Fetches /requests (pollng every 2s)
+5. Repository: INSERT into logs ("Request 10 created for floor 5")
    ↓
-6. RequestQueue displays new request
+6. Frontend: Fetches /requests (polling every 3s)
    ↓
-7. User/System: POST /assign_lift/{request_id}
+7. RequestQueue displays: Request 10, Floor 5, Lift 1, Status=pending
    ↓
-8. Backend: Service → SCAN algorithm → Pick best lift
+8. Backend: Background scheduler triggers simulate_lift_step(1)
    ↓
-9. Repository: UPDATE requests SET lift_id = X
+9. SCAN algorithm: get_next_floor_for_lift(1) → Returns floor 5
    ↓
-10. Repository: INSERT into logs (auto-logging)
-   ↓
-11. Frontend: Displays assigned lift in RequestQueue
+10. Lift moves one floor toward floor 5
     ↓
-12. Lift moves and serves request
+11. Repository: UPDATE lifts SET current_floor=2, direction=UP
     ↓
-13. PUT /requests/{request_id} → Mark as served
+12. Repository: INSERT into logs ("Moved UP to floor 2")
     ↓
-14. LogViewer shows event
+13. Frontend: Fetches /lifts (polling every 3s) → Shows lift at floor 2
+    ↓
+14. [Steps 8-13 repeat until lift reaches floor 5]
+    ↓
+15. Lift arrives at floor 5
+    ↓
+16. update_and_serve(): Open doors, mark request as served, close doors
+    ↓
+17. Repository: DELETE from requests (request served)
+    ↓
+18. Repository: INSERT into logs ("Served request 10 at floor 5")
+    ↓
+19. LogViewer displays event
+    ↓
+20. Dashboard shows: No pending requests, Lift 1 idle at floor 5
 ```
 
 ### Real-Time Updates
