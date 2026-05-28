@@ -1,5 +1,5 @@
 import type { Lift } from "../types";
-import "./styles/LiftCard.css";
+
 
 
 interface LiftCardProps {
@@ -31,8 +31,9 @@ export function LiftCard({ lift }: LiftCardProps) {
 
             {/* Floor Display */}
             <div className="floor-section">
-                <div className="floor-number">{lift.current_floor}</div>
-                <div className="floor-label">Current Floor</div>
+                
+                <div className="floor-label">Current Floor:{lift.current_floor}</div>
+                
             </div>
 
             {/* Direction Status */}
