@@ -10,8 +10,10 @@ export function RequestPanel(){
         e.preventDefault();
         setLoading(true);
         try{
-            const result = await createRequest(Number(floor));
-            setMessage(`Request created:${result.message}`);
+            const result = await createRequest(Number(floor), 1);
+            
+            setMessage(`Request created: Floor ${result.floor}, Lift ${result.lift_id}`);
+            setFloor(""); // Reset input after successful request
         }catch (err){
             setMessage('Failed to create Request');
         } finally{
@@ -28,7 +30,7 @@ export function RequestPanel(){
                 value={floor}
                 onChange={(e)=>setFloor(e.target.value)}
                 placeholder="Enter floor number"
-                min="0"
+                min="1"
                 max="10"
                 required
                 />
