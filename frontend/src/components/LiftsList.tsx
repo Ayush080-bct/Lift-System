@@ -2,15 +2,14 @@ import { getAllLifts } from "../services/api";
 import { useState,useEffect } from "react";
 import type { Lift } from "../types";
 import { LiftCard } from "./LiftCard";
-import "./styles/LiftsList.css";
+
 
 export function LiftsList(){
     const [lifts,setLifts]=useState<Lift[]>([])
     const [loading,setLoading]=useState(true);
     const [error,setError]=useState<string | null>(null);
 
-    useEffect(()=>{// useEffect is used to handle side effects like API calls,
-// timers, and event listeners after component rendering.
+    useEffect(()=>{
         const fetchLifts=async () =>{
             try{
                 const data=await getAllLifts();
@@ -21,9 +20,17 @@ export function LiftsList(){
                 setLoading(false);
             }
         };
+        // Fetch immediately on mount
         fetchLifts();
-    },[]);//dependency array [],without it it works same like , when we dont use sideeffect 
-    //i.e with each render it will run fetch which intialize request each time
+        
+        // Poll every 3 seconds for lift updates
+        const pollInterval=setInterval(()=>{
+            fetchLifts();
+        }, 3000);
+        
+        // Clean up interval on unmount
+        return ()=>clearInterval(pollInterval);
+    },[]);
     return (
     <div className="lifts-list">
         {loading && <p>Loading Lifts...</p>}
