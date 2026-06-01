@@ -1,4 +1,4 @@
-import { getAllLifts } from "../services/api";
+import { getAllLifts, simulateLiftStep } from "../services/api";
 import { useState,useEffect } from "react";
 import type { Lift } from "../types";
 import { LiftCard } from "./LiftCard";
@@ -14,6 +14,10 @@ export function LiftsList(){
             try{
                 const data=await getAllLifts();
                 setLifts(data);
+                // Trigger movement simulation for each lift
+                for (const lift of data) {
+                    await simulateLiftStep(lift.lift_id);
+                }
             }catch(err){
                 setError("Failed to fetch Lifts")
             }finally{
@@ -23,10 +27,10 @@ export function LiftsList(){
         // Fetch immediately on mount
         fetchLifts();
         
-        // Poll every 3 seconds for lift updates
+        // Poll every 2 seconds for lift updates and trigger movement
         const pollInterval=setInterval(()=>{
             fetchLifts();
-        }, 3000);
+        }, 2000);
         
         // Clean up interval on unmount
         return ()=>clearInterval(pollInterval);
