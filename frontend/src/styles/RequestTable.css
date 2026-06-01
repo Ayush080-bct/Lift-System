@@ -1,0 +1,71 @@
+.pending-requests {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    flex: 1;
+    overflow-y: auto;
+    max-height: 300px;
+}
+
+.pending-requests h3 {
+    color: #333;
+    margin-top: 0;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 10px;
+}
+
+.no-requests {
+    text-align: center;
+    color: #999;
+    padding: 20px;
+    font-style: italic;
+}
+
+.pending-requests table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.pending-requests thead {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    position: sticky;
+    top: 0;
+}
+
+.pending-requests th {
+    padding: 12px;
+    text-align: left;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+.pending-requests td {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    font-size: 13px;
+}
+
+.pending-requests tbody tr:hover {
+    background: #f9f9f9;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    display: inline-block;
+}
+
+.status-pending {
+    background: #ffd666;
+    color: #333;
+}
+
+.status-served {
+    background: #51cf66;
+    color: white;
+}
