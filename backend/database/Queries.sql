@@ -42,3 +42,16 @@ VALUES
     (3,'idle','closed'),
     (5,'idle','closed'),
     (7,'idle','closed');
+
+
+DELETE FROM logs;
+ALTER sequence logs_log_id_seq restart with 1;
+
+
+DELETE FROM requests;
+ALTER sequence requests_request_id_seq restart with 1;
+
+
+
+DELETE FROM lifts;
+ALTER sequence lifts_lift_id_seq restart with 1;
