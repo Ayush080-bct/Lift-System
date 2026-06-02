@@ -10,7 +10,30 @@ from fastapi.requests import Request
 from fastapi.middleware.cors import CORSMiddleware
 import psycopg2
 
-app=FastAPI()
+   
+async def simulate_lifts():
+    """Background task to continuously move lifts"""
+    while True:
+        try:
+            # For each lift, simulate one step
+            lifts = repo.get_all_lifts()
+            for lift in lifts:
+                scheduler.update_and_serve(lift.lift_id)
+            await asyncio.sleep(2)  # Every 2 seconds
+        except Exception as e:
+            print(f"Error in lift simulation: {e}")
+            await asyncio.sleep(2)
+
+# Startup and shutdown events
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: start background task
+    task = asyncio.create_task(simulate_lifts())
+    yield
+    # Shutdown: cancel task
+    task.cancel()
+
+app=FastAPI(lifespan=lifespan)
 
 # Enable CORS for frontend
 app.add_middleware(
@@ -249,25 +272,4 @@ def simulate_lift_step(lift_id: int):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
-async def simulate_lifts():
-    """Background task to continuously move lifts"""
-    while True:
-        try:
-            # For each lift, simulate one step
-            lifts = repo.get_all_lifts()
-            for lift in lifts:
-                scheduler.update_and_serve(lift.lift_id)
-            await asyncio.sleep(2)  # Every 2 seconds
-        except Exception as e:
-            print(f"Error in lift simulation: {e}")
-            await asyncio.sleep(2)
-
-# Startup and shutdown events
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup: start background task
-    task = asyncio.create_task(simulate_lifts())
-    yield
-    # Shutdown: cancel task
-    task.cancel()
+ 
