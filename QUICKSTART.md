@@ -48,11 +48,11 @@ VITE v... ready in XXX ms
 
 ## ✅ How to Know It's Working
 
-✓ Header appears with gradient background
-✓ Request Lift form visible
-✓ Lifts display with data (NOT "Failed to fetch")
-✓ Can create requests
-✓ Logs update in real-time
+- Control page loads (light gray background, lift shaft on the left)
+- No red "Cannot reach backend" message
+- Press a hall ▲/▼ or inside floor button — request appears in the table
+- Lift car moves on the shaft every ~2 seconds
+- Dashboard shows logs (`button_pressed`, `door_opened`, `lift_arrived`, etc.)
 
 ---
 

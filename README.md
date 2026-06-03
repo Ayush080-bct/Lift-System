@@ -1,161 +1,167 @@
-# Lift System Backend
+# Lift Control System
 
-A simple backend project that simulates the working of a lift (elevator) system.  
-This project demonstrates how to design structured databases, implement scheduling algorithms, and expose REST APIs for managing lift requests, states, and logs.
+Full-stack elevator simulation: FastAPI + PostgreSQL backend, React + TypeScript frontend.  
+Uses the **SCAN** scheduling algorithm. Phase 1 runs **one lift** (floors 1–10); the backend can handle more lifts when you add rows to the database.
 
-## 🚀 Features
-- Track lift state (current floor, direction, door status)
-- Handle floor requests (internal and external calls)
-- Scheduling algorithm to assign lifts efficiently
-- Log events for safety and maintenance
-- Built with PostgreSQL for structured data and reliability
+## What it does
 
-## To run server
-- fastapi dev backend/app/main.py
+- **Hall calls** — UP/DOWN buttons at each floor (outside panel)
+- **Inside lift** — floor buttons 1–10 to pick a destination
+- **Automatic movement** — backend moves the lift every 2 seconds (open doors, serve requests, move one floor)
+- **SCAN ordering** — serves stops in one direction, then reverses (e.g. at floor 1 going up: 5 → 6 → 8)
+- **Dashboard** — lift status, pending requests, event logs (polling)
 
-## 📡 API Endpoints
+## Tech stack
 
-### GET Endpoints
-| Endpoint | Description |
-|----------|-------------|
-| `GET /` | Health check - returns API status |
-| `GET /lifts/{lift_id}` | Get specific lift status by ID (returns lift_id and current_floor) |
-| `GET /lifts` | Get all lifts status with full details (lift_id, current_floor, direction, door_status) |
-| `GET /requests` | Get all pending requests |
-| `GET /logs` | Get all event logs |
+| Layer | Stack |
+|-------|--------|
+| Backend | Python, FastAPI, psycopg2, python-dotenv |
+| Database | PostgreSQL (connection pool) |
+| Frontend | React, TypeScript, Vite |
 
-### PUT Endpoints
-| Endpoint | Description | Parameters |
-|----------|-------------|------------|
-| `PUT /lifts/{lift_id}` | Update lift position and status | `lift_id` (path), `floor`, `direction`, `door_status` (query) |
-| `PUT /requests/{request_id}` | Mark request as served | `request_id` (path parameter) |
+## Project structure
 
-### POST Endpoints
-| Endpoint | Description | Parameters |
-|----------|-------------|------------|
-| `POST /requests` | Create a new lift request | `floor` (query parameter) |
-| `POST /logs` | Add a new event log | `lift_id`, `event_type` (query parameters) |
-
-## 🏗️ Architecture
-
-### Repository Pattern (Data Access Layer)
-The project uses the **Repository Pattern** to separate database operations from business logic:
-
-**Benefits:**
-- ✅ Clean separation between data access and business logic
-- ✅ Easy to test (can mock repository)
-- ✅ Reusable across multiple services
-- ✅ Centralized database queries
-
-**Layers:**
-1. **Model Layer** (`backend/model/`) - Data structures
-2. **Repository Layer** (`backend/repository/`) - Database operations
-3. **Service Layer** (`backend/service/`) - Business logic (SCAN algorithm)
-4. **API Layer** (`backend/app/`) - FastAPI endpoints
-
-## 🤖 SCAN Algorithm (Scheduling Service)
-
-The lift system uses the **SCAN Algorithm** (elevator algorithm) for efficient scheduling:
-
-### How it works:
-1. **Lift moves in one direction** until all requests in that direction are served
-2. **Reverses direction** when no more requests ahead
-3. **Picks closest lift** that's already moving toward the requested floor
-4. **Load balancing** - avoids assigning >5 requests to one lift
-
-### Example:
 ```
-Lift 1: floor 3, moving UP
-Request: floor 7
-
-Action: Assign Lift 1 (already moving up, closer to floor 7)
-Scoring: distance=4, load=2 requests → score = 4 + (2*2) = 8
+LiftSystem/
+├── backend/
+│   ├── app/main.py              # REST API + background simulation
+│   ├── database/Schema.sql      # tables + seed (lift 1)
+│   ├── model/                   # dataclasses + DB pool
+│   ├── repository/              # SQL access
+│   └── service/                 # SCAN scheduling
+├── frontend/
+│   └── src/
+│       ├── pages/ControlPage    # shaft + hall + inside panel
+│       ├── pages/DashboardPage  # status tables
+│       └── services/api.ts      # API client
+├── .env.example
+└── QUICKSTART.md                # step-by-step run guide
 ```
 
-## 📊 Data Models
+## Quick start
 
-### Lift
-```python
-@dataclass
-class Lift:
-    lift_id: int           # Unique identifier
-    current_floor: int     # Current position (0-10)
-    direction: str         # "up", "down", or "idle"
-    door_status: str       # "open" or "closed"
-```
+See **[QUICKSTART.md](QUICKSTART.md)** for full steps. Short version:
 
-### Request
-```python
-@dataclass
-class Request:
-    request_id: int        # Unique identifier
-    floor: int             # Requested floor
-    request_time: datetime # When request was made
-    status: str            # "pending" or "served"
-    lift_id: int           # Assigned lift (nullable)
-```
-
-### Log
-```python
-@dataclass
-class Log:
-    log_id: int            # Unique identifier
-    lift_id: int           # Which lift
-    event_type: str        # Event description
-    event_time: datetime   # When event occurred
-```
-
-## 🔗 Additional Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `PUT /requests/{request_id}` | PUT | Mark request as served |
-| `POST /logs` | POST | Log an event |
-| `GET /logs` | GET | Get all event logs |
-
-## 🚨 Error Handling
-
-The API includes comprehensive error handling:
-- **400**: Bad request (negative floors, invalid direction)
-- **404**: Resource not found (lift/request doesn't exist)
-- **500**: Server error (unexpected exceptions)
-
-## 🗄️ Database
-
-### Tables
-- **lifts** - Lift status and position
-- **requests** - Floor requests with status
-- **logs** - Event records for auditing
-
-Run schema setup:
 ```bash
-psql -U your_user -d lift_system -f backend/database/Schema.sql
-```
-    cursor.close()
-    return {"lift_id": result[0], "floor": result[1]}
-```
-❌ Database code scattered everywhere
-❌ Hard to test without a real database
-❌ Duplicate queries in multiple endpoints
-❌ Difficult to switch databases (PostgreSQL → MongoDB)
+# 1. Database
+cp .env.example .env          # set DB_PASS
+psql -U ayush -d lift_system -f backend/database/Schema.sql
 
-**With Repository (Best Practice):**
-```python
-# repository/repository.py (Data Access)
-class LiftRepository:
-    def get_lift(self, lift_id: int):
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM lifts WHERE lift_id = %s", (lift_id,))
-        return cursor.fetchone()
+# 2. Backend (from project root)
+source Lvenv/bin/activate
+fastapi dev backend/app/main.py
 
-# app/main.py (Business Logic)
-@app.get("/lift_status/{lift_id}")
-def lift_status(lift_id: int):
-    result = repo.get_lift(lift_id)
-    return {"lift_id": result[0], "floor": result[1]}
+# 3. Frontend
+cd frontend && npm install && npm run dev
 ```
-✅ All database logic in ONE place
-✅ Easy to mock for testing
-✅ No code duplication
-✅ Easy to switch databases later
-✅ Clean separation: Model → Repository → Controller
+
+- Control UI: http://localhost:5173/
+- API: http://127.0.0.1:8000/
+- Dashboard: http://localhost:5173/dashboard
+
+## Environment variables
+
+Create `.env` in the project root (see `.env.example`):
+
+```
+DB_NAME=lift_system
+DB_USER=ayush
+DB_PASS=your_password
+DB_HOST=localhost
+DB_PORT=5432
+```
+
+## Frontend pages
+
+### Control (`/`)
+
+- One animated lift shaft (car moves with CSS; doors open/close)
+- Hall call column — ▲/▼ per floor
+- Inside panel — destination buttons
+- Pending requests table
+
+When you add more lifts later, use the lift chips to switch which one is shown in the shaft (others appear as cards on the dashboard).
+
+### Dashboard (`/dashboard`)
+
+- All lifts (floor, direction, doors)
+- Pending requests
+- Last 20 event logs
+
+## API endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | Health check |
+| GET | `/lifts` | All lifts |
+| GET | `/lifts/{id}` | One lift (full status) |
+| PUT | `/lifts/{id}` | Update lift (`floor`, `direction`, `door_status` query params) |
+| POST | `/requests?floor=5` | New request (auto-assigns best lift) |
+| GET | `/requests` | Pending requests |
+| PUT | `/requests/{id}` | Mark request served |
+| GET | `/logs` | Event logs (newest first, limit 50) |
+| POST | `/logs` | Add log (`lift_id`, `event_type`) |
+| GET | `/next_floor/{id}` | Next stop + SCAN queue |
+| POST | `/simulate_lift_step/{id}` | Manual one-step simulation (optional) |
+
+**Log event types:** `button_pressed`, `lift_arrived`, `door_opened`, `door_closed`, `emergency_stop`
+
+Floors must be between **1** and **10**.
+
+## Architecture
+
+```
+React UI  →  REST API (main.py)  →  SchedulingService (SCAN)
+                                      ↓
+                               LiftRepository  →  PostgreSQL
+```
+
+1. **Model** (`backend/model/`) — `Lift`, `Request`, `Log` dataclasses; connection pool  
+2. **Repository** (`backend/repository/`) — all SQL  
+3. **Service** (`backend/service/`) — assign lift, next floor, `update_and_serve`  
+4. **API** (`backend/app/`) — async routes; background task moves lifts every 2s  
+
+Simulation runs on the **backend only**. The frontend polls every 2s to refresh the UI.
+
+## SCAN algorithm (short)
+
+1. New request → `assign_lift_to_request()` picks the best lift (moving toward floor, closest idle, or nearest; skips lifts with more than 5 pending jobs).
+2. Each tick → serve requests at current floor (doors open → mark served → doors close).
+3. Move one floor toward the next stop in SCAN order (up: lowest floor above; then reverse down).
+
+Example: at floor 1, going up, requests for 5, 6, 8 → order **5 → 6 → 8**.
+
+## Database tables
+
+| Table | Purpose |
+|-------|---------|
+| `lifts` | `lift_id`, `current_floor`, `direction`, `door_status` |
+| `requests` | `floor`, `status` (pending/served), `lift_id` |
+| `logs` | `lift_id`, `event_type`, `event_time` |
+
+Reset data (dev only): see `backend/database/Queries.sql`.
+
+## Scaling to multiple lifts
+
+1. Insert another row: `INSERT INTO lifts (current_floor, direction, door_status) VALUES (1, 'idle', 'closed');`
+2. POST `/requests` already assigns via SCAN across all lifts.
+3. Control page shows a chip per lift to switch the animated shaft.
+
+## Troubleshooting
+
+| Problem | Check |
+|---------|--------|
+| `Failed to fetch` in UI | Backend on :8000, CORS, `.env` / Postgres up |
+| `DB_PASS not found` | `.env` in project root |
+| Lift not moving | Backend logs; simulation runs in lifespan task |
+| Log insert fails | `event_type` must be one of the five allowed values |
+
+## Docs
+
+- [QUICKSTART.md](QUICKSTART.md) — run locally  
+- [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md) — detailed design notes  
+- [docs/README.md](docs/README.md) — extra architecture write-up  
+
+## Author notes
+
+Built as a 3rd-year style project: plain CSS, repository pattern, SCAN elevator logic, and real-time polling instead of WebSockets.
