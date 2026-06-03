@@ -1,161 +1,145 @@
 """
-Lift Scheduling Service - SCAN Algorithm
-Lifts move in one direction until all requests in that direction are served,
-then reverse direction. This minimizes travel time and is energy efficient.
+SCAN scheduling: one direction until no more stops ahead, then reverse.
 """
 
 from backend.repository.repository import LiftRepository
 
+MAX_LOAD = 5
+
+
 class SchedulingService:
     def __init__(self, repo: LiftRepository):
         self.repo = repo
-    
-    def assign_lift_to_request(self, requested_floor: int):
-        """
-        Assign best lift to handle a request using SCAN algorithm.
-        
-        Algorithm:
-        1. Find lifts moving toward the requested floor
-        2. Pick the one closest to requested floor
-        3. If no lift moving toward it, pick closest idle lift
-        4. If no idle lift, pick the one that will reach it first
-        """
+
+    def assign_lift_to_request(self, requested_floor: int) -> int | None:
         lifts = self.repo.get_all_lifts()
-        pending_requests = self.repo.get_pending_request()
-        
         if not lifts:
             return None
-        
-        # Count pending requests for each lift
-        lift_load = {lift.lift_id: 0 for lift in lifts}
-        for req in pending_requests:
+
+        pending = self.repo.get_pending_request()
+        load = {lift.lift_id: 0 for lift in lifts}
+        for req in pending:
             if req.lift_id:
-                lift_load[req.lift_id] += 1
-        
-        # Find best lift
+                load[req.lift_id] += 1
+
         best_lift = None
-        best_score = float('inf')
-        
+        best_score = float("inf")
+
         for lift in lifts:
-            # Skip overloaded lifts (more than 5 pending requests)
-            if lift_load[lift.lift_id] > 5:
+            if load[lift.lift_id] > MAX_LOAD:
                 continue
-            
-            # Priority 1: Lift moving toward requested floor (SCAN algorithm)
+
             if lift.direction == "up" and lift.current_floor < requested_floor:
                 distance = requested_floor - lift.current_floor
-                score = distance + (lift_load[lift.lift_id] * 2)
-                if score < best_score:
-                    best_score = score
-                    best_lift = lift
-            
             elif lift.direction == "down" and lift.current_floor > requested_floor:
                 distance = lift.current_floor - requested_floor
-                score = distance + (lift_load[lift.lift_id] * 2)
-                if score < best_score:
-                    best_score = score
-                    best_lift = lift
-            
-            # Priority 2: Idle lift
             elif lift.direction == "idle":
                 distance = abs(lift.current_floor - requested_floor)
-                score = distance + (lift_load[lift.lift_id] * 2)
-                if score < best_score:
-                    best_score = score
-                    best_lift = lift
-        
-        # If no lift found, fallback to closest lift regardless of direction
+            else:
+                distance = abs(lift.current_floor - requested_floor) + 10
+
+            score = distance + load[lift.lift_id] * 2
+            if score < best_score:
+                best_score = score
+                best_lift = lift
+
         if best_lift is None:
             best_lift = min(lifts, key=lambda l: abs(l.current_floor - requested_floor))
-        
-        return best_lift.lift_id if best_lift else None
-    
-    def get_next_floor_for_lift(self, lift_id: int):
-        """
-        Get the next floor a lift should visit based on pending requests
-        and SCAN algorithm logic.
-        """
-        lift = self.repo.get_lift(lift_id)
-        pending_requests = self.repo.get_pending_request()
-        
-        # Filter requests for this lift
-        lift_requests = [req for req in pending_requests if req.lift_id == lift_id]
-        
-        if not lift_requests:
-            # No pending requests, go to idle state
-            return None
-        
-        # Get all unique floors for this lift
-        floors = sorted(set(req.floor for req in lift_requests))
-        current_floor = lift.current_floor
-        
-        # SCAN algorithm: continue in current direction
-        if lift.direction == "up":
-            # Find floors above current position
-            floors_above = [f for f in floors if f > current_floor]
-            if floors_above:
-                return min(floors_above)  # Go to closest floor above
-            else:
-                # No floors above, reverse to down
-                return max(floors)  # Go to topmost floor first
-        
-        elif lift.direction == "down":
-            # Find floors below current position
-            floors_below = [f for f in floors if f < current_floor]
-            if floors_below:
-                return max(floors_below)  # Go to closest floor below
-            else:
-                # No floors below, reverse to up
-                return min(floors)  # Go to bottom floor first
-        
-        else:  # idle
-            # Pick closest floor
-            return min(floors, key=lambda f: abs(f - current_floor))
-    
-    def update_and_serve(self, lift_id: int):
-        """
-        Moves the lift to the next floor, serves requests if it arrives,
-        and logs the events. This is the core simulation engine for a lift.
-        """
+
+        return best_lift.lift_id
+
+    def get_scan_queue(self, lift_id: int) -> list[int]:
+        """Ordered list of floors this lift will visit (for UI)."""
         lift = self.repo.get_lift(lift_id)
         if not lift:
-            return  # Lift not found
+            return []
 
-        # 1. Find requests for this lift that are at its current floor
-        pending_requests = self.repo.get_pending_request()
-        requests_at_current_floor = [
-            req for req in pending_requests
+        floors = sorted(
+            {req.floor for req in self.repo.get_pending_request() if req.lift_id == lift_id}
+        )
+        if not floors:
+            return []
+
+        current = lift.current_floor
+        direction = lift.direction
+        queue: list[int] = []
+        remaining = set(floors)
+
+        while remaining:
+            if direction == "up":
+                ahead = sorted(f for f in remaining if f > current)
+                if ahead:
+                    target = ahead[0]
+                else:
+                    direction = "down"
+                    continue
+            elif direction == "down":
+                below = sorted((f for f in remaining if f < current), reverse=True)
+                if below:
+                    target = below[0]
+                else:
+                    direction = "up"
+                    continue
+            else:
+                target = min(remaining, key=lambda f: abs(f - current))
+                direction = "up" if target > current else "down"
+
+            queue.append(target)
+            remaining.remove(target)
+            current = target
+
+        return queue
+
+    def get_next_floor_for_lift(self, lift_id: int) -> int | None:
+        queue = self.get_scan_queue(lift_id)
+        if not queue:
+            return None
+
+        lift = self.repo.get_lift(lift_id)
+        if not lift:
+            return None
+
+        current = lift.current_floor
+        for floor in queue:
+            if floor != current:
+                return floor
+        return queue[0] if queue else None
+
+    def update_and_serve(self, lift_id: int) -> None:
+        lift = self.repo.get_lift(lift_id)
+        if not lift:
+            return
+
+        pending = self.repo.get_pending_request()
+        at_floor = [
+            req
+            for req in pending
             if req.lift_id == lift_id and req.floor == lift.current_floor
         ]
 
-        # 2. Serve all requests at the current floor
-        if requests_at_current_floor:
+        if at_floor:
             self.repo.move_lift(lift_id, lift.current_floor, lift.direction, "open")
-            for req in requests_at_current_floor:
+            self.repo.log_event(lift_id, "door_opened")
+            for req in at_floor:
                 self.repo.mark_served(req.request_id)
-                self.repo.log_event(
-                    lift_id, f"Served request {req.request_id} at floor {lift.current_floor}"
-                )
+                self.repo.log_event(lift_id, "lift_arrived")
             self.repo.move_lift(lift_id, lift.current_floor, lift.direction, "closed")
+            self.repo.log_event(lift_id, "door_closed")
+            lift = self.repo.get_lift(lift_id)
 
-        # 3. Determine the next floor for the lift to move to
         next_floor = self.get_next_floor_for_lift(lift_id)
-
-        if next_floor is not None:
-            # Determine direction based on next floor
-            new_direction = "idle"
-            if next_floor > lift.current_floor:
-                new_direction = "up"
-            elif next_floor < lift.current_floor:
-                new_direction = "down"
-
-            # Move the lift one step closer to the next floor
-            next_target_floor = lift.current_floor + (1 if new_direction == "up" else -1)
-            if new_direction != "idle":
-                self.repo.move_lift(lift_id, next_target_floor, new_direction, "closed")
-                self.repo.log_event(lift_id, f"Moving {new_direction} to floor {next_target_floor}")
-        else:
-            # No more requests, become idle
+        if next_floor is None:
             if lift.direction != "idle":
                 self.repo.move_lift(lift_id, lift.current_floor, "idle", "closed")
-                self.repo.log_event(lift_id, "Became idle, no pending requests.")
+            return
+
+        if next_floor > lift.current_floor:
+            new_floor = lift.current_floor + 1
+            new_direction = "up"
+        elif next_floor < lift.current_floor:
+            new_floor = lift.current_floor - 1
+            new_direction = "down"
+        else:
+            return
+
+        self.repo.move_lift(lift_id, new_floor, new_direction, "closed")
