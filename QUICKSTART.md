@@ -1,5 +1,15 @@
 # Getting Started - Quick Setup
 
+## First-time database (single lift, floors 1–10)
+
+```bash
+cd /home/ayush/LiftSystem
+cp .env.example .env   # edit DB_PASS
+psql -U ayush -d lift_system -f backend/database/Schema.sql
+```
+
+If you already had an old schema, reset tables first (see `backend/database/Queries.sql`).
+
 ## 🚀 Start Everything
 
 ### Terminal 1: Start PostgreSQL
