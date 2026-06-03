@@ -1,63 +1,108 @@
-import { getAllLifts, getRequests, simulateLiftStep } from "../services/api";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { getAllLifts, getRequests, getNextFloor } from "../services/api";
 import type { Lift, Request } from "../types";
 import { LiftVisualization } from "../components/LiftVisualization";
 import { InsidePanel } from "../components/InsidePanel";
-import { OutsidePanel } from "../components/OutsidePanel";
+import { HallCallPanel } from "../components/HallCallPanel";
 import { RequestTable } from "../components/RequestTable";
 import "./ControlPage.css";
 
+/** Phase 1: single animated lift. When scaling, change activeLiftId to switch the shaft view. */
+const DEFAULT_LIFT_ID = 1;
+const POLL_MS = 2000;
+
 const ControlPage = () => {
-    const [lift, setLift] = useState<Lift | null>(null);
-    const [requests, setRequests] = useState<Request[]>([]);
-    const [loading, setLoading] = useState(false);
+  const [lifts, setLifts] = useState<Lift[]>([]);
+  const [requests, setRequests] = useState<Request[]>([]);
+  const [queue, setQueue] = useState<number[]>([]);
+  const [activeLiftId, setActiveLiftId] = useState(DEFAULT_LIFT_ID);
+  const [error, setError] = useState<string | null>(null);
 
-    // Fetch lift status and requests, and simulate lift movement
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const lifts = await getAllLifts();
-                if (lifts.length > 0) {
-                    setLift(lifts[0]); // Get lift 1
-                    // Simulate one step of lift movement for each lift
-                    await simulateLiftStep(lifts[0].lift_id);
-                }
-                const reqs = await getRequests();
-                setRequests(reqs);
-            } catch (err) {
-                console.error("Failed to fetch data", err);
-            }
-        };
+  const fetchData = useCallback(async () => {
+    try {
+      const [liftsData, reqsData] = await Promise.all([getAllLifts(), getRequests()]);
+      setLifts(liftsData);
+      setRequests(reqsData);
+      setError(null);
 
-        fetchData();
-        const interval = setInterval(fetchData, 2000); // Poll every 2 seconds and simulate movement
-        return () => clearInterval(interval);
-    }, []);
+      const id = liftsData.some((l) => l.lift_id === activeLiftId)
+        ? activeLiftId
+        : liftsData[0]?.lift_id ?? DEFAULT_LIFT_ID;
 
-    return (
-        <div className="control-page">
-            <header className="control-header">
-                <h1>🛗 Lift Control System</h1>
-            </header>
+      if (id !== activeLiftId && liftsData.length) {
+        setActiveLiftId(id);
+      }
 
-            <div className="control-container">
-                {/* LEFT SIDE: Lift Animation + Outside Buttons */}
-                <div className="left-section">
-                    <LiftVisualization lift={lift} />
-                    <OutsidePanel onRequestCreated={() => setLoading(!loading)} />
-                </div>
+      if (id) {
+        const next = await getNextFloor(id);
+        setQueue(next.queue ?? []);
+      }
+    } catch {
+      setError("Cannot reach backend — start FastAPI on port 8000");
+    }
+  }, [activeLiftId]);
 
-                {/* RIGHT SIDE: Inside Buttons + Request Table */}
-                <div className="right-section">
-                    <InsidePanel
-                        loading={loading}
-                        onRequestCreated={() => setLoading(!loading)}
-                    />
-                    <RequestTable requests={requests} />
-                </div>
-            </div>
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, POLL_MS);
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  const activeLift = lifts.find((l) => l.lift_id === activeLiftId) ?? lifts[0];
+
+  return (
+    <div className="control-page">
+      <header className="control-header">
+        <h1>Lift Control</h1>
+        <p>Floor requests use SCAN. Lift moves every 2 seconds.</p>
+        <nav className="control-nav">
+          <a href="/">Control</a>
+          <a href="/dashboard">Dashboard</a>
+        </nav>
+      </header>
+
+      {error && <p className="control-error">{error}</p>}
+
+      {/* When you add more lifts: compact chips switch which one is animated */}
+      {lifts.length > 1 && (
+        <div className="lift-selector">
+          {lifts.map((l) => (
+            <button
+              key={l.lift_id}
+              type="button"
+              className={`lift-selector__chip ${l.lift_id === activeLiftId ? "lift-selector__chip--active" : ""}`}
+              onClick={() => setActiveLiftId(l.lift_id)}
+            >
+              Lift {l.lift_id} · F{l.current_floor} {l.direction !== "idle" ? (l.direction === "up" ? "↑" : "↓") : ""}
+            </button>
+          ))}
         </div>
-    );
+      )}
+
+      <div className="control-layout">
+        <section className="control-shaft-zone">
+          {activeLift ? (
+            <div className="shaft-row">
+              <HallCallPanel onRequestCreated={fetchData} />
+              <LiftVisualization lift={activeLift} queue={queue} />
+            </div>
+          ) : (
+            <p className="control-loading">Loading lift…</p>
+          )}
+        </section>
+
+        <aside className="control-side">
+          {activeLift && (
+            <InsidePanel
+              currentFloor={activeLift.current_floor}
+              onRequestCreated={fetchData}
+            />
+          )}
+          <RequestTable requests={requests} />
+        </aside>
+      </div>
+    </div>
+  );
 };
 
 export default ControlPage;

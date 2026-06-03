@@ -1,0 +1,67 @@
+/* hall buttons beside the shaft */
+.hall-panel {
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 12px;
+  min-width: 120px;
+}
+
+.hall-panel__title {
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.hall-panel__hint {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+.hall-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.hall-panel__row {
+  display: grid;
+  grid-template-columns: 24px 1fr 1fr;
+  gap: 4px;
+  align-items: center;
+}
+
+.hall-panel__floor-label {
+  font-size: 12px;
+  font-weight: bold;
+  text-align: right;
+}
+
+.hall-btn {
+  padding: 4px 0;
+  border: 1px solid #999;
+  background: #fafafa;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.hall-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.hall-btn--up {
+  color: #2e7d32;
+}
+
+.hall-btn--down {
+  color: #c62828;
+}
+
+.hall-panel__message {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #2e7d32;
+  text-align: center;
+}

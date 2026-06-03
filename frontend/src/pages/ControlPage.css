@@ -1,65 +1,101 @@
+/* main control page layout */
 .control-page {
-    padding: 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
+  min-height: 100vh;
+  padding: 20px;
+  background: #f0f0f0;
 }
 
 .control-header {
-    text-align: center;
-    color: white;
-    margin-bottom: 30px;
+  text-align: center;
+  margin-bottom: 20px;
 }
 
 .control-header h1 {
-    font-size: 2.5em;
-    margin: 0;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  font-size: 22px;
+  font-weight: bold;
 }
 
-.control-container {
-    display: flex;
-    gap: 30px;
-    max-width: 1400px;
-    margin: 0 auto;
+.control-header p {
+  color: #555;
+  font-size: 13px;
+  margin-top: 4px;
 }
 
-.left-section {
-    flex: 1;
-    display: flex;
+.control-nav {
+  margin-top: 10px;
+}
+
+.control-nav a {
+  margin: 0 8px;
+  font-size: 14px;
+}
+
+.control-error {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+  padding: 10px;
+  margin: 0 auto 16px;
+  max-width: 500px;
+  text-align: center;
+}
+
+.lift-selector {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.lift-selector__chip {
+  margin: 4px;
+  padding: 6px 12px;
+  border: 1px solid #999;
+  background: #fff;
+  border-radius: 4px;
+}
+
+.lift-selector__chip--active {
+  background: #1565c0;
+  color: #fff;
+  border-color: #0d47a1;
+}
+
+.control-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.control-shaft-zone {
+  flex: 1;
+  min-width: 280px;
+}
+
+.shaft-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.control-side {
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.control-loading {
+  padding: 24px;
+  color: #666;
+}
+
+@media (max-width: 700px) {
+  .control-side {
+    width: 100%;
+  }
+
+  .shaft-row {
     flex-direction: column;
-    gap: 20px;
+  }
 }
-
-.right-section {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-/* ===== RESPONSIVE ===== */
-@media (max-width: 1024px) {
-    .control-container {
-        flex-direction: column;
-        gap: 20px;
-    }
-
-    .control-header h1 {
-        font-size: 1.8em;
-    }
-}
-
-@media (max-width: 768px) {
-    .control-page {
-        padding: 10px;
-    }
-
-    .control-header h1 {
-        font-size: 1.5em;
-    }
-
-    .control-container {
-        gap: 15px;
-    }
-}
-
