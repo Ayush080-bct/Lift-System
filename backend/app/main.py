@@ -1,41 +1,52 @@
-from fastapi import FastAPI,HTTPException
-from backend.model.models import Lift, Request, Log
+import asyncio
+from contextlib import asynccontextmanager
+
+import psycopg2
+from fastapi import FastAPI, HTTPException
+from fastapi.concurrency import run_in_threadpool
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.requests import Request
+from fastapi.responses import JSONResponse
+
 from backend.repository.repository import LiftRepository
 from backend.service.scheduling_service import SchedulingService
-from contextlib import asynccontextmanager
-import asyncio
 
-from fastapi.responses import JSONResponse
-from fastapi.requests import Request
-from fastapi.middleware.cors import CORSMiddleware
-import psycopg2
+repo = LiftRepository()
+scheduler = SchedulingService(repo)
 
-   
+MIN_FLOOR = 1
+MAX_FLOOR = 10
+
+
+def _lift_json(lift):
+    return {
+        "lift_id": lift.lift_id,
+        "current_floor": lift.current_floor,
+        "direction": lift.direction,
+        "door_status": lift.door_status,
+    }
+
+
 async def simulate_lifts():
-    """Background task to continuously move lifts"""
     while True:
         try:
-            # For each lift, simulate one step
-            lifts = repo.get_all_lifts()
+            lifts = await run_in_threadpool(repo.get_all_lifts)
             for lift in lifts:
-                scheduler.update_and_serve(lift.lift_id)
-            await asyncio.sleep(2)  # Every 2 seconds
+                await run_in_threadpool(scheduler.update_and_serve, lift.lift_id)
         except Exception as e:
             print(f"Error in lift simulation: {e}")
-            await asyncio.sleep(2)
+        await asyncio.sleep(2)
 
-# Startup and shutdown events
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: start background task
     task = asyncio.create_task(simulate_lifts())
     yield
-    # Shutdown: cancel task
     task.cancel()
 
-app=FastAPI(lifespan=lifespan)
 
-# Enable CORS for frontend
+app = FastAPI(lifespan=lifespan)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -44,232 +55,167 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-repo=LiftRepository()
-scheduler=SchedulingService(repo)
-
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    if isinstance(exc, HTTPException):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
     return JSONResponse(
         status_code=500,
-        content={"error": "Unexpected server error", "details": str(exc)}
+        content={"error": "Unexpected server error", "details": str(exc)},
     )
+
+
 @app.get("/")
-def root():
-    return {"message":"Lift System API running"}
-@app.get('/lifts/{lift_id}')
-def lift_status(lift_id:int):
-    try:
-        result=repo.get_lift(lift_id)
-        if result:
-            return {'lift_id':result[0],'floor':result[1]}
+async def root():
+    return {"message": "Lift System API running"}
+
+
+@app.get("/lifts/{lift_id}")
+async def lift_status(lift_id: int):
+    lift = await run_in_threadpool(repo.get_lift, lift_id)
+    if not lift:
         raise HTTPException(status_code=404, detail="Lift not found")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-@app.get('/lifts')
-def lifts_status():
-    try:
-        result=repo.get_all_lifts()
-        if result:
-            return {"lifts": [{"lift_id": lift.lift_id, "current_floor": lift.current_floor, "direction": lift.direction, "door_status": lift.door_status} for lift in result]}
-        return {"lifts": []}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return _lift_json(lift)
+
+
+@app.get("/lifts")
+async def lifts_status():
+    lifts = await run_in_threadpool(repo.get_all_lifts)
+    return {"lifts": [_lift_json(lift) for lift in lifts]}
+
+
 @app.put("/lifts/{lift_id}")
-def move_lift(lift_id: int, floor: int, direction: str, door_status: str):
-    try:
-        if floor < 0:
-            raise HTTPException(status_code=400, detail="Floor cannot be negative")
-        if direction not in ["up", "down", "idle"]:
-            raise HTTPException(status_code=400, detail="Direction must be 'up', 'down', or 'idle'")
-        if door_status not in ["open", "closed"]:
-            raise HTTPException(status_code=400, detail="Door status must be 'open' or 'closed'")
-        result = repo.move_lift(lift_id, floor, direction, door_status)
-        if result:
-            return {
-                "message": "Lift moved successfully",
-                "lift_id": lift_id,
-                "floor": floor,
-                "direction": direction,
-                "door_status": door_status
-            }
+async def move_lift(lift_id: int, floor: int, direction: str, door_status: str):
+    if floor < MIN_FLOOR or floor > MAX_FLOOR:
+        raise HTTPException(status_code=400, detail=f"Floor must be between {MIN_FLOOR} and {MAX_FLOOR}")
+    if direction not in ("up", "down", "idle"):
+        raise HTTPException(status_code=400, detail="Invalid direction")
+    if door_status not in ("open", "closed"):
+        raise HTTPException(status_code=400, detail="Invalid door status")
+
+    ok = await run_in_threadpool(repo.move_lift, lift_id, floor, direction, door_status)
+    if not ok:
         raise HTTPException(status_code=404, detail="Lift not found")
-    except psycopg2.errors.CheckViolation as e:
-        raise HTTPException(status_code=400, detail="Invalid input: " + str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-@app.post('/requests')
-def position_request(floor:int,lift_id:int=1):#floor is the query parameter in endpoint
-    try:
-        if floor < 0:
-            raise HTTPException(status_code=400, detail="Floor cannot be negative")
-        result=repo.add_request(floor)
-        if result:
-            # Assign request to lift immediately
-            repo.assign_request_to_lift(result, lift_id)
-            repo.log_event(lift_id, f"Request {result} created for floor {floor}")
-            return {'message':'Request added successfully','request_id':result,'floor':floor,'lift_id':lift_id,'status':'pending'}
-        raise HTTPException(status_code=500, detail="Failed to add request")
-    except psycopg2.errors.CheckViolation as e:
-        raise HTTPException(status_code=400, detail="Invalid input: " + str(e))
-    except psycopg2.errors.ForeignKeyViolation as e:
-        raise HTTPException(status_code=404, detail="Lift not found: " + str(e))
-    except psycopg2.errors.UniqueViolation as e:
-        raise HTTPException(status_code=409, detail="Duplicate request: " + str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"message": "Lift updated", **_lift_json(await run_in_threadpool(repo.get_lift, lift_id))}
 
-@app.get('/requests')
-def get_all_position_request():
+
+@app.post("/requests")
+async def create_request(floor: int):
+    if floor < MIN_FLOOR or floor > MAX_FLOOR:
+        raise HTTPException(status_code=400, detail=f"Floor must be between {MIN_FLOOR} and {MAX_FLOOR}")
+
     try:
-        result=repo.get_pending_request()
-        if result:
-            return {'requests':[{'request_id':request.request_id,
-                                'floor':request.floor,
-                                'request_time':request.request_time,
-                                'status':request.status,
-                                'lift_id':request.lift_id
-                }for request in result]}
-        return {"requests": []}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500,detail=str(e))
-@app.put('/requests/{request_id}')
-def change_status(request_id:int):
-    try:
-        # Get request details BEFORE deleting
-        pending_requests = repo.get_pending_request()
-        request_obj = next((r for r in pending_requests if r.request_id == request_id), None)
-        
-        if not request_obj:
-            raise HTTPException(status_code=404, detail="Request not found")
-        
-        # Delete the request
-        result = repo.mark_served(request_id)
-        
-        if result:
-            # Create log entry
-            repo.log_event(request_obj.lift_id, f"Served request {request_id} for floor {request_obj.floor}")
-            return {'message':'Pending request served successfully','request_id':request_id}
-        
+        request_id = await run_in_threadpool(repo.add_request, floor)
+        if not request_id:
+            raise HTTPException(status_code=500, detail="Failed to add request")
+
+        lift_id = await run_in_threadpool(scheduler.assign_lift_to_request, floor)
+        if not lift_id:
+            raise HTTPException(status_code=503, detail="No lifts available")
+
+        await run_in_threadpool(repo.assign_request_to_lift, request_id, lift_id)
+        await run_in_threadpool(repo.log_event, lift_id, "button_pressed")
+
+        return {
+            "message": "Request added successfully",
+            "request_id": request_id,
+            "floor": floor,
+            "lift_id": lift_id,
+            "status": "pending",
+        }
+    except psycopg2.errors.CheckViolation as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except psycopg2.errors.ForeignKeyViolation as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/requests")
+async def get_requests():
+    pending = await run_in_threadpool(repo.get_pending_request)
+    return {
+        "requests": [
+            {
+                "request_id": r.request_id,
+                "floor": r.floor,
+                "request_time": r.request_time,
+                "status": r.status,
+                "lift_id": r.lift_id,
+            }
+            for r in pending
+        ]
+    }
+
+
+@app.put("/requests/{request_id}")
+async def serve_request(request_id: int):
+    pending = await run_in_threadpool(repo.get_pending_request)
+    req = next((r for r in pending if r.request_id == request_id), None)
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    ok = await run_in_threadpool(repo.mark_served, request_id)
+    if not ok:
         raise HTTPException(status_code=404, detail="Failed to serve request")
-    except psycopg2.errors.CheckViolation as e:
-        raise HTTPException(status_code=400, detail="Invalid input: " + str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
+    if req.lift_id:
+        await run_in_threadpool(repo.log_event, req.lift_id, "lift_arrived")
+
+    return {"message": "Request served", "request_id": request_id}
+
+
 @app.post("/logs")
-def add_log(lift_id: int, event_type: str):
-    try:
-        if not event_type or len(event_type) == 0:
-            raise HTTPException(status_code=400, detail="Event type cannot be empty")
-        result = repo.log_event(lift_id, event_type)
-        if result:
-            return {
-                "message": "Log added successfully",
-                "lift_id": lift_id,
-                "event_type": event_type
-            }
+async def add_log(lift_id: int, event_type: str):
+    allowed = {"button_pressed", "lift_arrived", "door_opened", "door_closed", "emergency_stop"}
+    if event_type not in allowed:
+        raise HTTPException(status_code=400, detail=f"event_type must be one of {allowed}")
+
+    log_id = await run_in_threadpool(repo.log_event, lift_id, event_type)
+    if not log_id:
         raise HTTPException(status_code=500, detail="Failed to add log")
-    except psycopg2.errors.CheckViolation as e:
-        raise HTTPException(status_code=400, detail="Invalid input: " + str(e))
-    except psycopg2.errors.ForeignKeyViolation as e:
-        raise HTTPException(status_code=404, detail="Lift not found: " + str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"message": "Log added", "log_id": log_id, "lift_id": lift_id, "event_type": event_type}
+
+
 @app.get("/logs")
-def get_all_logs():
-    try:
-        result = repo.get_all_logs()
-        if result:
-            return {
-                "logs": [
-                    {
-                        "log_id": log.log_id,
-                        "lift_id": log.lift_id,
-                        "event_type": log.event_type,
-                        "event_time": log.event_time
-                    }
-                    for log in result
-                ]
+async def get_logs():
+    logs = await run_in_threadpool(repo.get_all_logs)
+    return {
+        "logs": [
+            {
+                "log_id": log.log_id,
+                "lift_id": log.lift_id,
+                "event_type": log.event_type,
+                "event_time": log.event_time,
             }
-        return {"logs": []}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-
+            for log in logs
+        ]
+    }
 
 
 @app.get("/next_floor/{lift_id}")
-def get_next_floor(lift_id: int):
-    """
-    Get the next floor a lift should visit based on pending requests (SCAN algorithm).
-    """
-    try:
-        lift = repo.get_lift(lift_id)
-        
-        if not lift:
-            raise HTTPException(status_code=404, detail="Lift not found")
-        
-        next_floor = scheduler.get_next_floor_for_lift(lift_id)
-        
-        if next_floor is None:
-            return {
-                "message": "No pending requests",
-                "lift_id": lift_id,
-                "next_floor": None,
-                "current_floor": lift.current_floor
-            }
-        
-        return {
-            "message": "Next floor determined",
-            "lift_id": lift_id,
-            "current_floor": lift.current_floor,
-            "next_floor": next_floor,
-            "direction": lift.direction
-        }
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+async def get_next_floor(lift_id: int):
+    lift = await run_in_threadpool(repo.get_lift, lift_id)
+    if not lift:
+        raise HTTPException(status_code=404, detail="Lift not found")
+
+    next_floor = await run_in_threadpool(scheduler.get_next_floor_for_lift, lift_id)
+    queue = await run_in_threadpool(scheduler.get_scan_queue, lift_id)
+
+    return {
+        "lift_id": lift_id,
+        "current_floor": lift.current_floor,
+        "next_floor": next_floor,
+        "direction": lift.direction,
+        "queue": queue,
+    }
 
 
 @app.post("/simulate_lift_step/{lift_id}")
-def simulate_lift_step(lift_id: int):
-    """
-    Simulate one step of lift movement: move floor, serve requests, and log events.
-    This is the engine that makes lifts move automatically following SCAN algorithm.
-    """
-    try:
-        lift = repo.get_lift(lift_id)
-        
-        if not lift:
-            raise HTTPException(status_code=404, detail="Lift not found")
-        
-        # Execute one simulation step
-        scheduler.update_and_serve(lift_id)
-        
-        # Get updated lift status
-        updated_lift = repo.get_lift(lift_id)
-        
-        return {
-            "message": "Lift step executed",
-            "lift_id": lift_id,
-            "current_floor": updated_lift.current_floor,
-            "direction": updated_lift.direction,
-            "door_status": updated_lift.door_status
-        }
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
- 
+async def simulate_lift_step(lift_id: int):
+    lift = await run_in_threadpool(repo.get_lift, lift_id)
+    if not lift:
+        raise HTTPException(status_code=404, detail="Lift not found")
+
+    await run_in_threadpool(scheduler.update_and_serve, lift_id)
+    updated = await run_in_threadpool(repo.get_lift, lift_id)
+    return {"message": "Lift step executed", **_lift_json(updated)}
