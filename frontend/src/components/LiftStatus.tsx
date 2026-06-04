@@ -1,43 +1,41 @@
-import { useEffect, useState } from "react"
-import { getNextFloor } from "../services/api";
+import { useState, useEffect, useCallback } from "react";
+import { getNextFloor, getLift } from "../services/api";
+import type { Lift } from "../types";
 
-const LiftStatus = ({ lift_id }: { lift_id: number }) => {
-  const [nextfloor, setNextfloor] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
+export default function LiftStatus({ liftId }: { liftId: number }) {
+  const [lift, setLift] = useState<Lift | null>(null);
+  const [nextFloor, setNextFloor] = useState<number | null>(null);
+  const [queue, setQueue] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchnext = async () => {
-    setLoading(true);
+  const fetchLiftData = useCallback(async () => {
     try {
-      const data = await getNextFloor(lift_id);
-      // assuming backend returns { next_floor: number }
-      setNextfloor(data.next_floor);
+      const [liftData, nextData] = await Promise.all([getLift(liftId), getNextFloor(liftId)]);
+      setLift(liftData);
+      setNextFloor(nextData.next_floor);
+      setQueue(nextData.queue ?? []);
       setError(null);
     } catch (err) {
-      setError("Failed to fetch next floor");
-    } finally {
-      setLoading(false);
+      setError(err instanceof Error ? err.message : "Failed to fetch");
     }
-  };
+  }, [liftId]);
 
   useEffect(() => {
-    fetchnext();
-    const pollInterval = setInterval(() => {
-      fetchnext();
-    }, 3000);
-    return () => clearInterval(pollInterval);
-  }, [lift_id]);
+    fetchLiftData();
+    const interval = setInterval(fetchLiftData, 2000);
+    return () => clearInterval(interval);
+  }, [fetchLiftData]);
+
+  if (error) return <div className="lift-status-card lift-status-card--error">{error}</div>;
+  if (!lift) return <div className="lift-status-card">Loading…</div>;
 
   return (
-    <div className="assign-lift">
-      <h3>Lift {lift_id} Status</h3>
-      {loading && <p>Loading...</p>}
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      {nextfloor !== null && !loading && !error && (
-        <p>Next floor: {nextfloor}</p>
-      )}
+    <div className="lift-status-card">
+      <h3>Lift {lift.lift_id}</h3>
+      <p>Floor {lift.current_floor}</p>
+      <p>{lift.direction} · {lift.door_status}</p>
+      <p>Next: {nextFloor ?? "—"}</p>
+      {queue.length > 0 && <p className="lift-status-card__queue">{queue.join(" → ")}</p>}
     </div>
   );
-};
-
-export default LiftStatus;
+}
