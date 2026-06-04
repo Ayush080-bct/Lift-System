@@ -10,7 +10,7 @@ export function RequestPanel(){
         e.preventDefault();
         setLoading(true);
         try{
-            const result = await createRequest(Number(floor), 1);
+            const result = await createRequest(Number(floor));
             
             setMessage(`Request created: Floor ${result.floor}, Lift ${result.lift_id}`);
             setFloor(""); // Reset input after successful request
