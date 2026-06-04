@@ -1,14 +1,14 @@
 import ControlPage from "../pages/ControlPage";
 import DashboardPage from "../pages/DashboardPage";
-import { BrowserRouter,Routes,Route } from "react-router-dom";
-const Routing=()=>{
-    return(
-    <BrowserRouter>
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+const Routing = () => (
+  <BrowserRouter>
     <Routes>
-        <Route path='/' element={<ControlPage />} />
-        <Route path='/Dashboard' element={<DashboardPage />} />
+      <Route path="/" element={<ControlPage />} />
+      <Route path="/dashboard" element={<DashboardPage />} />
     </Routes>
-    </BrowserRouter>
-    )
-}
+  </BrowserRouter>
+);
+
 export default Routing;
