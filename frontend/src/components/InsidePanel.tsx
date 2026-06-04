@@ -3,44 +3,53 @@ import { createRequest } from "../services/api";
 import "../styles/InsidePanel.css";
 
 interface Props {
-    loading: boolean;
-    onRequestCreated: () => void;
+  currentFloor: number;
+  onRequestCreated: () => void;
 }
 
-export function InsidePanel({ loading, onRequestCreated }: Props) {
-    const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
-    const [message, setMessage] = useState<string | null>(null);
+export function InsidePanel({ currentFloor, onRequestCreated }: Props) {
+  const [pressed, setPressed] = useState<Set<number>>(new Set());
+  const [message, setMessage] = useState<string | null>(null);
 
-    const floorButtons = Array.from({ length: 10 }, (_, i) => i + 1);
+  const floors = Array.from({ length: 10 }, (_, i) => 10 - i);
 
-    const handleFloorRequest = async (floor: number) => {
-        setSelectedFloor(floor);
-        try {
-            const result = await createRequest(floor, 1); // lift_id = 1
-            setMessage(`Request created: Floor ${result.floor}, Lift 1`);
-            setTimeout(() => setMessage(null), 3000);
-            onRequestCreated();
-        } catch (err) {
-            setMessage("Failed to create request");
-        }
-    };
+  const handleFloor = async (floor: number) => {
+    if (floor === currentFloor) return;
 
-    return (
-        <div className="inside-lift-panel">
-            <h3>Inside Lift - Select Floor</h3>
-            <div className="floor-buttons">
-                {floorButtons.reverse().map((floor) => (
-                    <button
-                        key={floor}
-                        onClick={() => handleFloorRequest(floor)}
-                        disabled={loading || selectedFloor === floor}
-                        className={`floor-btn ${selectedFloor === floor ? "active" : ""}`}
-                    >
-                        {floor}
-                    </button>
-                ))}
-            </div>
-            {message && <div className="message">{message}</div>}
-        </div>
-    );
+    setPressed((prev) => new Set(prev).add(floor));
+    try {
+      await createRequest(floor);
+      setMessage(`Floor ${floor} selected`);
+      setTimeout(() => setMessage(null), 2000);
+      onRequestCreated();
+    } catch {
+      setMessage("Request failed");
+      setPressed((prev) => {
+        const next = new Set(prev);
+        next.delete(floor);
+        return next;
+      });
+    }
+  };
+
+  return (
+    <div className="inside-panel">
+      <h3 className="inside-panel__title">Inside lift</h3>
+      <p className="inside-panel__hint">Select destination floor</p>
+      <div className="inside-panel__grid">
+        {floors.map((floor) => (
+          <button
+            key={floor}
+            type="button"
+            className={`inside-panel__btn ${pressed.has(floor) ? "inside-panel__btn--lit" : ""} ${floor === currentFloor ? "inside-panel__btn--here" : ""}`}
+            disabled={floor === currentFloor}
+            onClick={() => handleFloor(floor)}
+          >
+            {floor}
+          </button>
+        ))}
+      </div>
+      {message && <p className="inside-panel__message">{message}</p>}
+    </div>
+  );
 }
