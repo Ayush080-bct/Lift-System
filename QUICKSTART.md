@@ -21,7 +21,7 @@ sudo service postgresql start
 ```bash
 cd /home/ayush/LiftSystem
 source Lvenv/bin/activate
-fastapi dev backend/app/main.py
+fastapi dev backend/app/main.py 
 ```
 
 Should show:
