@@ -9,14 +9,14 @@ env_path = Path(__file__).parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
 # Database configuration from environment
-DB_NAME = os.getenv("DB_NAME", "lift_system")
-DB_USER = os.getenv("DB_USER", "ayush")
+DB_NAME = os.getenv("DB_NAME")
+DB_USER = os.getenv("DB_USER")
 DB_PASS = os.getenv("DB_PASS")
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "5432")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
 
 if not DB_PASS:
-    raise ValueError("DB_PASS not found in environment variables. Check your .env file.")
+    print("DB_PASS not found in environment variables. Check your .env file.")
 
 # ✅ FIXED: Use ThreadedConnectionPool instead of single global connection
 # This handles concurrent requests safely
