@@ -8,8 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse
 
-from backend.repository.repository import LiftRepository
-from backend.service.scheduling_service import SchedulingService
+from repository.repository import LiftRepository
+from service.scheduling_service import SchedulingService
 
 repo = LiftRepository()
 scheduler = SchedulingService(repo)
