@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 
-from ..model.databases import get_connection, put_connection
-from ..model.models import Lift, Log, Request
+from model.databases import get_connection, put_connection
+from model.models import Lift, Log, Request
 
 
 class LiftRepository:
