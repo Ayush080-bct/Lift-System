@@ -2,7 +2,7 @@
 SCAN scheduling: one direction until no more stops ahead, then reverse.
 """
 
-from backend.repository.repository import LiftRepository
+from repository.repository import LiftRepository
 
 MAX_LOAD = 5
 
