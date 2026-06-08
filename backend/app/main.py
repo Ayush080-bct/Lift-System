@@ -7,6 +7,10 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse
+from pathlib import Path
+import sys
+project_root=Path(__file__).resolve().parent.parent
+sys.path.append(str(project_root))
 
 from repository.repository import LiftRepository
 from service.scheduling_service import SchedulingService

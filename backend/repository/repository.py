@@ -1,5 +1,8 @@
 from contextlib import contextmanager
-
+from pathlib import Path
+import sys
+project_root=Path(__file__).resolve().parent.parent
+sys.path.append(str(project_root))
 from model.databases import get_connection, put_connection
 from model.models import Lift, Log, Request
 

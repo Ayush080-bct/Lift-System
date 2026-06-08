@@ -1,7 +1,10 @@
 """
 SCAN scheduling: one direction until no more stops ahead, then reverse.
 """
-
+from pathlib import Path
+import sys
+project_root=Path(__file__).resolve().parent.parent
+sys.path.append(project_root)
 from repository.repository import LiftRepository
 
 MAX_LOAD = 5
